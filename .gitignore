@@ -1,0 +1,123 @@
+# =========================
+# Root Multi-Project Ignore
+# =========================
+
+# -------------------------
+# OS / File Explorer
+# -------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# -------------------------
+# Logs / Temp
+# -------------------------
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+
+# -------------------------
+# Editor / IDE
+# -------------------------
+.idea/
+.idea/*.xml
+.vscode/
+*.iml
+*.ipr
+*.iws
+out/
+
+# IntelliJ keeps these files machine-local and noisy in a multi-project repo.
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+.idea/workspace.xml
+
+# -------------------------
+# Java / Kotlin / Gradle
+# -------------------------
+.gradle/
+build/
+**/build/
+.kotlin/
+*.class
+
+# Keep wrapper jar tracked.
+!gradle/wrapper/gradle-wrapper.jar
+
+# Never ignore source folders that happen to contain "build" in their path.
+!**/src/main/**/build/
+!**/src/test/**/build/
+!**/src/androidTest/**/build/
+
+# -------------------------
+# Spring Boot / JVM runtime
+# -------------------------
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# -------------------------
+# Node / Frontend
+# -------------------------
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+coverage/
+**/coverage/
+.npm/
+.pnpm-store/
+.yarn/
+.turbo/
+
+# Frontend local env files often contain machine-specific or secret config.
+.env.local
+.env.*.local
+
+# -------------------------
+# Android
+# -------------------------
+android-app/.gradle/
+android-app/build/
+android-app/.idea/
+android-app/local.properties
+android-app/*.keystore
+android-app/*.jks
+android-app/.cxx/
+android-app/captures/
+**/outputs/
+**/intermediates/
+
+# APK / AAB artifacts should be produced by CI or local builds, not versioned.
+*.apk
+*.aab
+
+# -------------------------
+# Eclipse / STS
+# -------------------------
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# -------------------------
+# NetBeans
+# -------------------------
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/

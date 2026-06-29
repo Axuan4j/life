@@ -1,0 +1,136 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      enabled: true
+      charset: UTF-8
+      force: true
+      force-request: true
+      force-response: true
+
+spring:
+  application:
+    name: life-app
+  messages:
+    encoding: UTF-8
+  datasource:
+    url: ${LIFE_DB_URL:jdbc:mysql://localhost:3306/life?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${LIFE_DB_USERNAME:life}
+    password: ${LIFE_DB_PASSWORD:life123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${LIFE_REDIS_HOST:localhost}
+      port: ${LIFE_REDIS_PORT:6379}
+      database: ${LIFE_REDIS_DATABASE:0}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+life:
+  security:
+    jwt:
+      secret: ${LIFE_JWT_SECRET:life-life-life-life-life-life-life-life}
+      issuer: life-app
+      access-token-expire-minutes: 120
+      refresh-token-expire-days: 7
+  storage:
+    # 本地开发默认对接 docker compose 启动的 MinIO，避免 endpoint 为空时 Spring 启动直接失败。
+    endpoint: ${LIFE_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${LIFE_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${LIFE_STORAGE_SECRET_KEY:minioadmin}
+    bucket-name: ${LIFE_STORAGE_BUCKET:life-dev}
+  discover:
+    hot-keywords:
+      - keyword: 发帖体验
+        title: 发帖体验
+        trend-label: 热
+        heat-label: 24.8k 热度
+        match-keywords:
+          - 发帖
+          - 发布
+          - 内容
+      - keyword: feed 推荐
+        title: Feed 推荐
+        trend-label: 上升
+        heat-label: 18.2k 热度
+        match-keywords:
+          - feed
+          - 推荐
+          - 首页
+      - keyword: 城市骑行
+        title: 城市骑行
+        trend-label: 新
+        heat-label: 9.6k 热度
+        match-keywords:
+          - 骑行
+          - 清晨
+          - 城市
+      - keyword: 产品设计
+        title: 产品设计
+        trend-label: 热议
+        heat-label: 13.4k 热度
+        match-keywords:
+          - 产品
+          - 设计
+          - 流程
+      - keyword: Cursor 分页
+        title: Cursor 分页
+        trend-label: 推荐
+        heat-label: 11.1k 热度
+        match-keywords:
+          - cursor
+          - 分页
+          - 动态流
+    topics:
+      - topic-key: product-craft
+        title: 产品打磨
+        summary: 聚焦发帖、编辑、流程细节与移动端体验优化。
+        cover-style: warm
+        match-keywords:
+          - 发帖
+          - 流程
+          - 产品
+          - 设计
+      - topic-key: feed-ranking
+        title: Feed 排序
+        summary: 关注推荐混排、内容分发与动态流体验讨论。
+        cover-style: blue
+        match-keywords:
+          - feed
+          - 推荐
+          - 首页
+          - 分页
+      - topic-key: ride-and-code
+        title: 骑行与编码
+        summary: 骑行、晨间效率、工作节奏与生活方式分享。
+        cover-style: green
+        match-keywords:
+          - 骑行
+          - 清晨
+          - 代码
+          - 效率
+      - topic-key: mobile-community
+        title: 移动社区
+        summary: 围绕 H5、安卓和内容社区交互的多端实践。
+        cover-style: peach
+        match-keywords:
+          - 移动端
+          - 社区
+          - H5
+          - 安卓
+    recommended-authors:
+      - username: alice
+        reason: 设计与旅行
+      - username: bob
+        reason: 技术与骑行
+      - username: life_user
+        reason: 社区互动

@@ -1,0 +1,32 @@
+:root {
+  --lf-color-primary: #ff5a3c;
+  --lf-color-primary-strong: #ff4a26;
+  --lf-color-secondary: #2d7ff9;
+  --lf-color-accent: #22c55e;
+  --lf-color-bg: #f7f8fa;
+  --lf-color-surface: #ffffff;
+  --lf-color-text-primary: #1f2937;
+  --lf-color-text-secondary: #6b7280;
+  --lf-color-divider: #e5e7eb;
+  --lf-gradient-warm: linear-gradient(180deg, #fff4ee 0%, #f8fbff 100%);
+  --lf-gradient-hero: linear-gradient(135deg, #ff7a59 0%, #ffb65c 48%, #4d8dff 100%);
+  --lf-radius-sm: 8px;
+  --lf-radius-md: 12px;
+  --lf-radius-lg: 16px;
+  --lf-radius-xl: 24px;
+  --lf-shadow-card: 0 14px 36px rgba(23, 35, 61, 0.08);
+  --lf-shadow-hero: 0 18px 40px rgba(23, 35, 61, 0.12);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+  background: var(--lf-color-bg);
+  color: var(--lf-color-text-primary);
+}
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
