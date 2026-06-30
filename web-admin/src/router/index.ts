@@ -1,25 +1,94 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import AdminLayout from '../layouts/AdminLayout.vue';
+import LoginView from '../views/auth/LoginView.vue';
+import ForbiddenView from '../views/error/ForbiddenView.vue';
+import NotFoundView from '../views/error/NotFoundView.vue';
 import { useAdminAuthStore } from '../stores/auth';
-import DashboardView from '../views/DashboardView.vue';
-import LoginView from '../views/LoginView.vue';
+import { useAdminPermissionStore } from '../stores/permission';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', name: 'login', component: LoginView },
-    { path: '/', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
+    {
+      path: '/',
+      name: 'admin-root',
+      component: AdminLayout,
+      meta: { requiresAuth: true },
+      children: [],
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+      meta: { public: true, title: '登录' },
+    },
+    {
+      path: '/403',
+      name: 'forbidden',
+      component: ForbiddenView,
+      meta: { public: true, title: '暂无权限' },
+    },
+    {
+      path: '/404',
+      name: 'not-found',
+      component: NotFoundView,
+      meta: { public: true, title: '页面不存在' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'fallback-not-found',
+      component: NotFoundView,
+      meta: { public: true, title: '页面不存在' },
+    },
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAdminAuthStore();
-  // 管理端路由守卫在这里集中处理，避免每个页面分别判断权限导致规则分散。
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { name: 'login' };
+  const permissionStore = useAdminPermissionStore();
+
+  if (to.meta.public) {
+    if (to.name === 'login' && authStore.isAuthenticated) {
+      try {
+        if (!permissionStore.initialized) {
+          await permissionStore.bootstrap(router);
+        }
+        return permissionStore.homePath || '/403';
+      } catch {
+        authStore.clearSession();
+        permissionStore.reset(router);
+        return true;
+      }
+    }
+    return true;
   }
-  if (to.name === 'login' && authStore.isAuthenticated) {
-    return { name: 'dashboard' };
+
+  if (!authStore.isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } };
   }
+
+  if (!permissionStore.initialized) {
+    try {
+      await permissionStore.bootstrap(router);
+      if (to.name === 'fallback-not-found' || to.matched.length === 0) {
+        return { path: to.fullPath, replace: true };
+      }
+    } catch {
+      authStore.clearSession();
+      permissionStore.reset(router);
+      return { name: 'login', query: { redirect: to.fullPath } };
+    }
+  }
+
+  if (to.path === '/') {
+    return permissionStore.homePath || '/403';
+  }
+
+  const requiredPermission = typeof to.meta.permission === 'string' ? to.meta.permission : '';
+  if (requiredPermission && !permissionStore.hasPermission(requiredPermission)) {
+    return { name: 'forbidden' };
+  }
+
   return true;
 });
 

@@ -130,17 +130,17 @@
 
 ## 开发映射
 - `登录页`
-  - H5: [LoginView.vue](/E:/CodeDevelop/Project/life/web-user-h5/src/views/LoginView.vue)
+  - H5: [LoginView.vue](../web-user-h5/src/views/LoginView.vue)
   - Android: 后续新增登录页时直接复用本规范
 - `首页 Feed`
-  - H5: [FeedHomeView.vue](/E:/CodeDevelop/Project/life/web-user-h5/src/views/FeedHomeView.vue)
-  - Android: [HomeScreen.kt](/E:/CodeDevelop/Project/life/android-app/app/src/main/java/com/xuan/life/android/ui/screen/HomeScreen.kt)
+  - H5: [FeedHomeView.vue](../web-user-h5/src/views/FeedHomeView.vue)
+  - Android: [HomeScreen.kt](../android-app/app/src/main/java/com/xuan/life/android/ui/screen/HomeScreen.kt)
 - `发帖`
-  - H5: [PostComposerView.vue](/E:/CodeDevelop/Project/life/web-user-h5/src/views/PostComposerView.vue)
-  - Android: [ComposeScreen.kt](/E:/CodeDevelop/Project/life/android-app/app/src/main/java/com/xuan/life/android/ui/screen/ComposeScreen.kt)
+  - H5: [PostComposerView.vue](../web-user-h5/src/views/PostComposerView.vue)
+  - Android: [ComposeScreen.kt](../android-app/app/src/main/java/com/xuan/life/android/ui/screen/ComposeScreen.kt)
 - `我的`
-  - H5: [ProfileView.vue](/E:/CodeDevelop/Project/life/web-user-h5/src/views/ProfileView.vue)
-  - Android: [ProfileScreen.kt](/E:/CodeDevelop/Project/life/android-app/app/src/main/java/com/xuan/life/android/ui/screen/ProfileScreen.kt)
+  - H5: [ProfileView.vue](../web-user-h5/src/views/ProfileView.vue)
+  - Android: [ProfileScreen.kt](../android-app/app/src/main/java/com/xuan/life/android/ui/screen/ProfileScreen.kt)
 
 ## 设计稿使用说明
 - 先把这份母版当作 `统一参考标准`，再去改 Android 和 H5 的现有页面。

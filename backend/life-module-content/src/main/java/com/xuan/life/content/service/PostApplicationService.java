@@ -28,6 +28,7 @@ import com.xuan.life.content.web.response.PostLikedUserResponse;
 import com.xuan.life.content.web.response.PostMediaResponse;
 import com.xuan.life.content.web.response.PostRepostItemResponse;
 import com.xuan.life.infra.ip.IpRegionService;
+import com.xuan.life.message.service.NotificationApplicationService;
 import com.xuan.life.user.entity.UserAccount;
 import com.xuan.life.user.entity.UserProfile;
 import com.xuan.life.user.mapper.UserAccountMapper;
@@ -58,6 +59,7 @@ public class PostApplicationService {
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
     private final IpRegionService ipRegionService;
+    private final NotificationApplicationService notificationApplicationService;
 
     public PostApplicationService(
         PostMapper postMapper,
@@ -68,7 +70,8 @@ public class PostApplicationService {
         PostStatMapper postStatMapper,
         UserAccountMapper userAccountMapper,
         UserProfileMapper userProfileMapper,
-        IpRegionService ipRegionService
+        IpRegionService ipRegionService,
+        NotificationApplicationService notificationApplicationService
     ) {
         this.postMapper = postMapper;
         this.postCommentMapper = postCommentMapper;
@@ -79,6 +82,7 @@ public class PostApplicationService {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
         this.ipRegionService = ipRegionService;
+        this.notificationApplicationService = notificationApplicationService;
     }
 
     @Transactional
@@ -245,7 +249,7 @@ public class PostApplicationService {
 
     @Transactional
     public PostInteractionResponse toggleLike(Long currentUserId, Long postId) {
-        requireVisiblePost(postId);
+        Post sourcePost = requireVisiblePost(postId);
         PostLike existingLike = postLikeMapper.selectOne(new LambdaQueryWrapper<PostLike>()
             .eq(PostLike::getPostId, postId)
             .eq(PostLike::getUserId, currentUserId)
@@ -262,6 +266,12 @@ public class PostApplicationService {
             postLike.setUserId(currentUserId);
             postLikeMapper.insert(postLike);
             stat.setLikeCount(currentLikeCount + 1);
+            notificationApplicationService.createLikeNotification(
+                currentUserId,
+                sourcePost.getAuthorId(),
+                sourcePost.getId(),
+                sourcePost.getContentText()
+            );
         }
         postStatMapper.updateById(stat);
         return buildInteractionResponse(currentUserId, postId);
@@ -279,10 +289,11 @@ public class PostApplicationService {
             UserProfile sourceAuthorProfile = userProfileMapper.selectOne(new LambdaQueryWrapper<UserProfile>()
                 .eq(UserProfile::getUserId, sourcePost.getAuthorId())
                 .last("LIMIT 1"));
+            String repostContent = buildRepostContent(sourcePost, sourceAuthorAccount, sourceAuthorProfile);
 
             Post repostedPost = new Post();
             repostedPost.setAuthorId(currentUserId);
-            repostedPost.setContentText(buildRepostContent(sourcePost, sourceAuthorAccount, sourceAuthorProfile));
+            repostedPost.setContentText(repostContent);
             repostedPost.setVisibility("PUBLIC");
             repostedPost.setStatus("PUBLISHED");
             repostedPost.setClientIp(sourcePost.getClientIp());
@@ -307,13 +318,19 @@ public class PostApplicationService {
             long currentRepostCount = stat.getRepostCount() != null ? stat.getRepostCount() : 0L;
             stat.setRepostCount(currentRepostCount + 1);
             postStatMapper.updateById(stat);
+            notificationApplicationService.createRepostNotification(
+                currentUserId,
+                sourcePost.getAuthorId(),
+                sourcePost.getId(),
+                repostContent
+            );
         }
         return buildInteractionResponse(currentUserId, postId);
     }
 
     @Transactional
     public void createComment(Long currentUserId, Long postId, CreatePostCommentRequest request, String clientIp) {
-        requireVisiblePost(postId);
+        Post sourcePost = requireVisiblePost(postId);
 
         Long parentCommentId = request.parentCommentId();
         Long replyToUserId = request.replyToUserId();
@@ -348,6 +365,14 @@ public class PostApplicationService {
         long currentCommentCount = stat.getCommentCount() != null ? stat.getCommentCount() : 0L;
         stat.setCommentCount(currentCommentCount + 1);
         postStatMapper.updateById(stat);
+        notificationApplicationService.createCommentNotification(
+            currentUserId,
+            sourcePost.getAuthorId(),
+            comment.getReplyToUserId(),
+            sourcePost.getId(),
+            comment.getId(),
+            comment.getContentText()
+        );
     }
 
     @Transactional

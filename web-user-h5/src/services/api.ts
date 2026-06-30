@@ -18,6 +18,13 @@ export interface CursorPageResponse<T> {
   hasMore: boolean;
 }
 
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+  pageNo: number;
+  pageSize: number;
+}
+
 export type DiscoverResultType = 'TOPIC' | 'KEYWORD';
 export type DiscoverResultSort = 'COMPOSITE' | 'LATEST';
 
@@ -171,6 +178,30 @@ export interface DiscoverResultPageResponse {
   hasMore: boolean;
 }
 
+export interface UserNotificationResponse {
+  notificationId: number;
+  notificationType: 'LIKE' | 'COMMENT' | 'REPOST' | 'BROADCAST';
+  senderUserId: number | null;
+  senderName: string;
+  senderAvatarUrl: string | null;
+  title: string;
+  contentText: string;
+  read: boolean;
+  createdAt: string;
+  postId: number | null;
+  commentId: number | null;
+}
+
+export interface UnreadCountResponse {
+  unreadCount: number;
+}
+
+export interface NotificationStreamEventResponse {
+  eventType: 'SNAPSHOT' | 'NOTIFICATION_CREATED';
+  unreadCount: number;
+  notification: UserNotificationResponse | null;
+}
+
 export interface CreatePostRequest {
   contentText: string;
   medias: Array<{
@@ -294,5 +325,24 @@ export const discoverApi = {
         },
       }),
     );
+  },
+};
+
+export const notificationApi = {
+  async list(pageNo = 1, pageSize = 20) {
+    return unwrapResponse(
+      await http.get<ApiResponse<PageResponse<UserNotificationResponse>>>('/api/notifications', {
+        params: { pageNo, pageSize },
+      }),
+    );
+  },
+  async getUnreadCount() {
+    return unwrapResponse(await http.get<ApiResponse<UnreadCountResponse>>('/api/notifications/unread-count'));
+  },
+  async markRead(notificationId: number) {
+    return unwrapResponse(await http.patch<ApiResponse<null>>(`/api/notifications/${notificationId}/read`));
+  },
+  async markAllRead() {
+    return unwrapResponse(await http.patch<ApiResponse<null>>('/api/notifications/read-all'));
   },
 };

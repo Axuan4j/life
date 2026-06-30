@@ -9,7 +9,18 @@
       @click="go(item.to)"
     >
       <span class="icon-wrap">
-        <span class="icon-shell">
+        <van-badge
+          v-if="item.to === '/message'"
+          :content="messageUnreadCount"
+          :max="99"
+          :show-zero="false"
+          class="message-badge"
+        >
+          <span class="icon-shell">
+            <AppTabIcon :name="item.icon" class="icon" />
+          </span>
+        </van-badge>
+        <span v-else class="icon-shell">
           <AppTabIcon :name="item.icon" class="icon" />
         </span>
       </span>
@@ -19,11 +30,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useUserNotificationStore } from '../stores/notification';
 import AppTabIcon from './AppTabIcon.vue';
 
 const route = useRoute();
 const router = useRouter();
+const notificationStore = useUserNotificationStore();
 
 type TabIconName = 'home' | 'discover' | 'compose' | 'message' | 'profile';
 
@@ -34,6 +48,8 @@ const tabs: Array<{ label: string; to: string; icon: TabIconName }> = [
   { label: '消息', to: '/message', icon: 'message' },
   { label: '我的', to: '/profile', icon: 'profile' },
 ];
+
+const messageUnreadCount = computed(() => notificationStore.unreadCount);
 
 function isActive(path: string) {
   return route.path === path;
@@ -99,6 +115,14 @@ function go(path: string) {
   height: 100%;
   border-radius: inherit;
   background: rgba(248, 250, 252, 0.25);
+}
+
+.message-badge {
+  display: inline-flex;
+}
+
+.message-badge :deep(.van-badge__wrapper) {
+  display: inline-flex;
 }
 
 .icon {

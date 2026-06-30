@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import {
   ActionBar,
   ActionBarButton,
+  Badge,
   Button,
   Cell,
   CellGroup,
@@ -35,6 +36,7 @@ const app = createApp(App);
 app.use(createPinia());
 app.use(router);
 app.use(ConfigProvider);
+app.use(Badge);
 app.use(Button);
 app.use(Cell);
 app.use(CellGroup);

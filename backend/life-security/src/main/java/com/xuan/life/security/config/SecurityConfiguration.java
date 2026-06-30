@@ -51,6 +51,7 @@ public class SecurityConfiguration {
                 .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/auth/**", "/error").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/**").authenticated()

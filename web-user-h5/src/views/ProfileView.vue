@@ -109,7 +109,9 @@
       <div v-if="userPosts.length === 0" class="empty-posts">你还没有发布任何内容</div>
     </section>
     <div class="logout-wrap">
-      <van-button plain type="primary" @click="logout">退出登录</van-button>
+      <van-button block round type="danger" size="large" class="logout-button" @click="logout">
+        退出登录
+      </van-button>
     </div>
   </div>
 </template>
@@ -388,7 +390,10 @@ async function logout() {
   padding: 0;
 }
 
-.logout-wrap :deep(.van-button) {
-  border-radius: 999px;
+.logout-button {
+  --van-button-danger-background: #ff6f4d;
+  --van-button-danger-border-color: #ff6f4d;
+  --van-button-large-height: 48px;
+  font-weight: 600;
 }
 </style>

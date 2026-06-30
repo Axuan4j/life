@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `user_account`
     UNIQUE KEY `uk_username` (`username`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_0900_ai_ci COMMENT ='账户表';
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='C 端用户账户表';
 
 CREATE TABLE IF NOT EXISTS `user_profile`
 (
@@ -45,6 +45,95 @@ CREATE TABLE IF NOT EXISTS `user_profile`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='用户资料表';
+
+CREATE TABLE IF NOT EXISTS `admin_account`
+(
+    `id`                BIGINT       NOT NULL,
+    `username`          VARCHAR(64)  NOT NULL,
+    `display_name`      VARCHAR(64)  NOT NULL DEFAULT '',
+    `password_hash`     VARCHAR(255) NOT NULL,
+    `status`            TINYINT      NOT NULL DEFAULT 1,
+    `last_login_ip`     VARCHAR(64)  NOT NULL DEFAULT '',
+    `last_login_region` VARCHAR(128) NOT NULL DEFAULT '',
+    `last_login_at`     DATETIME     NULL,
+    `created_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_account_username` (`username`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='后台管理员账户表';
+
+CREATE TABLE IF NOT EXISTS `admin_role`
+(
+    `id`         BIGINT       NOT NULL,
+    `role_code`  VARCHAR(64)  NOT NULL,
+    `role_name`  VARCHAR(64)  NOT NULL,
+    `status`     TINYINT      NOT NULL DEFAULT 1,
+    `remark`     VARCHAR(255) NOT NULL DEFAULT '',
+    `is_system`  TINYINT      NOT NULL DEFAULT 0,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_role_code` (`role_code`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='后台角色表';
+
+CREATE TABLE IF NOT EXISTS `admin_menu`
+(
+    `id`              BIGINT       NOT NULL,
+    `parent_id`       BIGINT       NOT NULL DEFAULT 0,
+    `menu_type`       VARCHAR(32)  NOT NULL,
+    `menu_name`       VARCHAR(64)  NOT NULL,
+    `route_name`      VARCHAR(64)  NOT NULL,
+    `route_path`      VARCHAR(255) NOT NULL,
+    `view_key`        VARCHAR(128) NULL DEFAULT NULL,
+    `icon_name`       VARCHAR(64)  NOT NULL DEFAULT '',
+    `permission_code` VARCHAR(128) NULL DEFAULT NULL,
+    `sort_order`      INT          NOT NULL DEFAULT 0,
+    `visible`         TINYINT      NOT NULL DEFAULT 1,
+    `status`          TINYINT      NOT NULL DEFAULT 1,
+    `is_system`       TINYINT      NOT NULL DEFAULT 0,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_menu_route_name` (`route_name`),
+    UNIQUE KEY `uk_admin_menu_permission_code` (`permission_code`),
+    KEY `idx_admin_menu_parent_sort` (`parent_id`, `sort_order`, `id`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='后台菜单表';
+
+CREATE TABLE IF NOT EXISTS `admin_user_role`
+(
+    `id`         BIGINT   NOT NULL,
+    `user_id`    BIGINT   NOT NULL,
+    `role_id`    BIGINT   NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_user_role_pair` (`user_id`, `role_id`),
+    KEY `idx_admin_user_role_role_id` (`role_id`),
+    CONSTRAINT `fk_admin_user_role_user_id` FOREIGN KEY (`user_id`) REFERENCES `admin_account` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_admin_user_role_role_id` FOREIGN KEY (`role_id`) REFERENCES `admin_role` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='后台管理员角色绑定表';
+
+CREATE TABLE IF NOT EXISTS `admin_role_menu`
+(
+    `id`         BIGINT   NOT NULL,
+    `role_id`    BIGINT   NOT NULL,
+    `menu_id`    BIGINT   NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_admin_role_menu_pair` (`role_id`, `menu_id`),
+    KEY `idx_admin_role_menu_menu_id` (`menu_id`),
+    CONSTRAINT `fk_admin_role_menu_role_id` FOREIGN KEY (`role_id`) REFERENCES `admin_role` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_admin_role_menu_menu_id` FOREIGN KEY (`menu_id`) REFERENCES `admin_menu` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='后台角色菜单绑定表';
 
 CREATE TABLE IF NOT EXISTS `post`
 (
@@ -179,18 +268,28 @@ CREATE TABLE IF NOT EXISTS `feed_exposure`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='Feed 曝光记录表';
 
-ALTER TABLE `user_account`
-    ADD COLUMN `last_login_ip`     VARCHAR(64)  NOT NULL DEFAULT '' AFTER `status`,
-    ADD COLUMN `last_login_region` VARCHAR(128) NOT NULL DEFAULT '' AFTER `last_login_ip`,
-    ADD COLUMN `last_login_at`     DATETIME     NULL AFTER `last_login_region`;
-
-ALTER TABLE `post`
-    ADD COLUMN `client_ip` VARCHAR(64)  NOT NULL DEFAULT '' AFTER `status`,
-    ADD COLUMN `ip_region` VARCHAR(128) NOT NULL DEFAULT '' AFTER `client_ip`;
-
-ALTER TABLE `post_comment`
-    ADD COLUMN `client_ip` VARCHAR(64)  NOT NULL DEFAULT '' AFTER `status`,
-    ADD COLUMN `ip_region` VARCHAR(128) NOT NULL DEFAULT '' AFTER `client_ip`;
-
-ALTER TABLE `post_repost`
-    ADD COLUMN `repost_post_id` BIGINT NOT NULL DEFAULT 0 AFTER `user_id`;
+CREATE TABLE IF NOT EXISTS `user_notification`
+(
+    `id`                BIGINT       NOT NULL,
+    `receiver_user_id`  BIGINT       NOT NULL,
+    `notification_type` VARCHAR(32)  NOT NULL,
+    `actor_user_id`     BIGINT       NULL,
+    `sender_name`       VARCHAR(64)  NOT NULL DEFAULT '',
+    `title`             VARCHAR(128) NOT NULL,
+    `content_text`      VARCHAR(500) NOT NULL DEFAULT '',
+    `post_id`           BIGINT       NULL,
+    `comment_id`        BIGINT       NULL,
+    `is_read`           TINYINT      NOT NULL DEFAULT 0,
+    `read_at`           DATETIME     NULL,
+    `created_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_user_notification_receiver_created` (`receiver_user_id`, `created_at`, `id`),
+    KEY `idx_user_notification_receiver_read` (`receiver_user_id`, `is_read`, `created_at`, `id`),
+    KEY `idx_user_notification_actor_user_id` (`actor_user_id`),
+    CONSTRAINT `fk_user_notification_receiver_user_id` FOREIGN KEY (`receiver_user_id`) REFERENCES `user_account` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_notification_actor_user_id` FOREIGN KEY (`actor_user_id`) REFERENCES `user_account` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_user_notification_post_id` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_user_notification_comment_id` FOREIGN KEY (`comment_id`) REFERENCES `post_comment` (`id`) ON DELETE SET NULL
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='用户站内信与互动通知表';

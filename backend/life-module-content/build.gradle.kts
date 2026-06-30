@@ -15,6 +15,7 @@ dependencies {
     api(project(":backend:life-infra"))
     api(project(":backend:life-security"))
     api(project(":backend:life-module-user"))
+    api(project(":backend:life-module-message"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

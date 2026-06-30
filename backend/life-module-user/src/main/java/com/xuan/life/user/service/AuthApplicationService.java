@@ -7,6 +7,7 @@ import com.xuan.life.infra.ip.IpRegionService;
 import com.xuan.life.security.model.LifeAuthenticatedUser;
 import com.xuan.life.security.model.TokenPair;
 import com.xuan.life.security.service.JwtTokenService;
+import com.xuan.life.security.service.LifeAuthenticatedUserLookupService;
 import com.xuan.life.user.entity.UserAccount;
 import com.xuan.life.user.entity.UserProfile;
 import com.xuan.life.user.mapper.UserAccountMapper;
@@ -33,7 +34,7 @@ public class AuthApplicationService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
-    private final UserSecurityDetailsService userSecurityDetailsService;
+    private final LifeAuthenticatedUserLookupService authenticatedUserLookupService;
     private final IpRegionService ipRegionService;
 
     public AuthApplicationService(
@@ -42,7 +43,7 @@ public class AuthApplicationService {
         PasswordEncoder passwordEncoder,
         AuthenticationManager authenticationManager,
         JwtTokenService jwtTokenService,
-        UserSecurityDetailsService userSecurityDetailsService,
+        LifeAuthenticatedUserLookupService authenticatedUserLookupService,
         IpRegionService ipRegionService
     ) {
         this.userAccountMapper = userAccountMapper;
@@ -50,7 +51,7 @@ public class AuthApplicationService {
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
-        this.userSecurityDetailsService = userSecurityDetailsService;
+        this.authenticatedUserLookupService = authenticatedUserLookupService;
         this.ipRegionService = ipRegionService;
     }
 
@@ -90,9 +91,13 @@ public class AuthApplicationService {
     }
 
     public TokenPair refresh(RefreshTokenRequest request) {
-        // refresh token 只负责续签会话，不改变当前用户角色与状态，真实身份仍以数据库实时加载结果为准。
+        // refresh token 只负责续签会话，不改变当前用户角色与状态；拆表后要按 token 里的平台角色回到各自账号表加载。
         Claims claims = jwtTokenService.parseRefreshToken(request.refreshToken());
-        LifeAuthenticatedUser user = userSecurityDetailsService.loadUserByUsername(claims.getSubject());
+        LifeAuthenticatedUser tokenUser = jwtTokenService.toAuthenticatedUser(claims);
+        LifeAuthenticatedUser user = authenticatedUserLookupService.loadByRoleAndUserId(
+            tokenUser.getRole(),
+            tokenUser.getUserId()
+        );
         return jwtTokenService.issueTokenPair(user);
     }
 
