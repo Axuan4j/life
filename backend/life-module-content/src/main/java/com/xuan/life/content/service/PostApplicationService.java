@@ -92,7 +92,7 @@ public class PostApplicationService {
         Post post = new Post();
         post.setAuthorId(authorId);
         post.setContentText(request.contentText());
-        post.setVisibility("PUBLIC");
+        post.setVisibility(normalizeVisibility(request.visibility()));
         post.setStatus("PUBLISHED");
         post.setClientIp(clientIp);
         post.setIpRegion(ipRegionService.resolveRegion(clientIp));
@@ -127,21 +127,29 @@ public class PostApplicationService {
         return mapToCard(post, mediaResponses, stat, account, profile);
     }
 
-    public List<PostCardResponse> listUserPosts(Long userId, int pageNo, int pageSize) {
+    public List<PostCardResponse> listUserPosts(Long viewerUserId, Long userId, int pageNo, int pageSize) {
         Page<Post> page = new Page<>(pageNo, pageSize);
-        List<Post> posts = postMapper.selectPublicPostsByAuthor(page, userId);
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+            .eq(Post::getStatus, "PUBLISHED")
+            .eq(Post::getAuthorId, userId)
+            .orderByDesc(Post::getPublishedAt)
+            .orderByDesc(Post::getId);
+        if (!userId.equals(viewerUserId)) {
+            wrapper.eq(Post::getVisibility, "PUBLIC");
+        }
+        List<Post> posts = postMapper.selectPage(page, wrapper).getRecords();
         return mapToCards(posts);
     }
 
     public PostDetailResponse getPostDetail(Long currentUserId, Long postId) {
-        Post post = requireVisiblePost(postId);
+        Post post = requireAccessiblePost(currentUserId, postId);
         PostCardResponse card = mapToCards(List.of(post)).stream().findFirst()
             .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在"));
         return new PostDetailResponse(card, buildInteractionResponse(currentUserId, postId));
     }
 
-    public List<PostCommentResponse> listPostComments(Long postId) {
-        requireVisiblePost(postId);
+    public List<PostCommentResponse> listPostComments(Long currentUserId, Long postId) {
+        requireAccessiblePost(currentUserId, postId);
 
         List<PostComment> comments = postCommentMapper.selectVisibleCommentsByPostId(postId);
         if (CollectionUtils.isEmpty(comments)) {
@@ -199,8 +207,8 @@ public class PostApplicationService {
             .toList();
     }
 
-    public List<PostRepostItemResponse> listPostReposts(Long postId) {
-        requireVisiblePost(postId);
+    public List<PostRepostItemResponse> listPostReposts(Long currentUserId, Long postId) {
+        requireAccessiblePost(currentUserId, postId);
 
         List<PostRepost> reposts = postRepostMapper.selectList(new LambdaQueryWrapper<PostRepost>()
             .eq(PostRepost::getPostId, postId)
@@ -249,7 +257,7 @@ public class PostApplicationService {
 
     @Transactional
     public PostInteractionResponse toggleLike(Long currentUserId, Long postId) {
-        Post sourcePost = requireVisiblePost(postId);
+        Post sourcePost = requireAccessiblePost(currentUserId, postId);
         PostLike existingLike = postLikeMapper.selectOne(new LambdaQueryWrapper<PostLike>()
             .eq(PostLike::getPostId, postId)
             .eq(PostLike::getUserId, currentUserId)
@@ -279,7 +287,10 @@ public class PostApplicationService {
 
     @Transactional
     public PostInteractionResponse repost(Long currentUserId, Long postId) {
-        Post sourcePost = requireVisiblePost(postId);
+        Post sourcePost = requireAccessiblePost(currentUserId, postId);
+        if (!"PUBLIC".equals(sourcePost.getVisibility())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "仅公开内容支持转发");
+        }
         PostRepost existingRepost = postRepostMapper.selectOne(new LambdaQueryWrapper<PostRepost>()
             .eq(PostRepost::getPostId, postId)
             .eq(PostRepost::getUserId, currentUserId)
@@ -330,7 +341,7 @@ public class PostApplicationService {
 
     @Transactional
     public void createComment(Long currentUserId, Long postId, CreatePostCommentRequest request, String clientIp) {
-        Post sourcePost = requireVisiblePost(postId);
+        Post sourcePost = requireAccessiblePost(currentUserId, postId);
 
         Long parentCommentId = request.parentCommentId();
         Long replyToUserId = request.replyToUserId();
@@ -377,7 +388,7 @@ public class PostApplicationService {
 
     @Transactional
     public void deleteComment(Long currentUserId, Long postId, Long commentId) {
-        requireVisiblePost(postId);
+        requireAccessiblePost(currentUserId, postId);
         PostComment targetComment = postCommentMapper.selectById(commentId);
         if (targetComment == null || !postId.equals(targetComment.getPostId()) || !"VISIBLE".equals(targetComment.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "评论不存在");
@@ -504,6 +515,7 @@ public class PostApplicationService {
             profile != null ? profile.getNickname() : (account != null ? account.getUsername() : ""),
             profile != null ? profile.getAvatarUrl() : "",
             post.getIpRegion(),
+            post.getVisibility(),
             post.getContentText(),
             post.getPublishedAt(),
             likeCount,
@@ -564,12 +576,29 @@ public class PostApplicationService {
         return profile != null ? profile.getAvatarUrl() : "";
     }
 
-    private Post requireVisiblePost(Long postId) {
+    private Post requireAccessiblePost(Long currentUserId, Long postId) {
         Post post = postMapper.selectById(postId);
-        if (post == null || !"PUBLISHED".equals(post.getStatus()) || !"PUBLIC".equals(post.getVisibility())) {
+        if (post == null || !"PUBLISHED".equals(post.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在");
         }
-        return post;
+        if ("PUBLIC".equals(post.getVisibility())) {
+            return post;
+        }
+        if ("PRIVATE".equals(post.getVisibility()) && currentUserId != null && currentUserId.equals(post.getAuthorId())) {
+            return post;
+        }
+        throw new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在");
+    }
+
+    private String normalizeVisibility(String visibility) {
+        if (visibility == null || visibility.isBlank()) {
+            return "PUBLIC";
+        }
+        String normalized = visibility.trim().toUpperCase();
+        if ("PUBLIC".equals(normalized) || "PRIVATE".equals(normalized)) {
+            return normalized;
+        }
+        throw new BusinessException(ErrorCode.BAD_REQUEST, "不支持的可见范围");
     }
 
     private PostStat requirePostStat(Long postId) {

@@ -56,11 +56,17 @@ public class PostController {
 
     @GetMapping("/users/{userId}")
     public ApiResponse<List<PostCardResponse>> listUserPosts(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
         @PathVariable("userId") Long userId,
         @RequestParam(name = "pageNo", defaultValue = "1") @Min(value = 1, message = "页码必须大于 0") int pageNo,
         @RequestParam(name = "pageSize", defaultValue = "20") @Min(value = 1, message = "每页条数必须大于 0") @Max(value = 50, message = "每页最多 50 条") int pageSize
     ) {
-        return ApiResponse.success(postApplicationService.listUserPosts(userId, pageNo, pageSize));
+        return ApiResponse.success(postApplicationService.listUserPosts(
+            currentUser != null ? currentUser.getUserId() : null,
+            userId,
+            pageNo,
+            pageSize
+        ));
     }
 
     @GetMapping("/{postId}")
@@ -72,13 +78,25 @@ public class PostController {
     }
 
     @GetMapping("/{postId}/comments")
-    public ApiResponse<List<PostCommentResponse>> comments(@PathVariable("postId") Long postId) {
-        return ApiResponse.success(postApplicationService.listPostComments(postId));
+    public ApiResponse<List<PostCommentResponse>> comments(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
+        @PathVariable("postId") Long postId
+    ) {
+        return ApiResponse.success(postApplicationService.listPostComments(
+            currentUser != null ? currentUser.getUserId() : null,
+            postId
+        ));
     }
 
     @GetMapping("/{postId}/reposts")
-    public ApiResponse<List<PostRepostItemResponse>> reposts(@PathVariable("postId") Long postId) {
-        return ApiResponse.success(postApplicationService.listPostReposts(postId));
+    public ApiResponse<List<PostRepostItemResponse>> reposts(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
+        @PathVariable("postId") Long postId
+    ) {
+        return ApiResponse.success(postApplicationService.listPostReposts(
+            currentUser != null ? currentUser.getUserId() : null,
+            postId
+        ));
     }
 
     @PostMapping("/{postId}/comments")

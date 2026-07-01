@@ -1,11 +1,12 @@
 # 用户端移动母版设计稿 V1
 
-![用户端移动母版设计稿 V1](/E:/CodeDevelop/Project/life/docs/assets/user-mobile-design-v1.png)
+![用户端移动母版设计稿 V1](./assets/user-mobile-design-v1.png)
 
 ## 目标
 - 这是一套供 `Android` 与 `H5` 共用的移动端视觉母版。
 - V1 先覆盖核心闭环：`登录`、`首页 Feed`、`发帖`、`个人主页`。
 - 设计重点是统一视觉方向、组件语言和信息层级，避免两端各自发展。
+- 当前 H5 已额外扩展到 `发现页`、`消息页` 和 `点选验证码登录`，但整体视觉骨架仍应沿用这份母版。
 
 ## 视觉方向
 - 关键词：`内容社区感`、`轻社交`、`内容优先`、`清爽但不平淡`。
@@ -99,6 +100,7 @@
 - 中部：简洁表单卡
 - 底部：主登录按钮、次级登录方式入口
 - 不做后台式重表单，不出现复杂说明文案
+- 当前实现为：点击登录后弹出点选验证码，再继续提交账号密码；这是安全流程扩展，不改变登录页主视觉结构
 
 ### 首页 Feed
 - 顶部：简洁品牌头
@@ -131,7 +133,8 @@
 ## 开发映射
 - `登录页`
   - H5: [LoginView.vue](../web-user-h5/src/views/LoginView.vue)
-  - Android: 后续新增登录页时直接复用本规范
+  - Android: [LoginScreen.kt](../android-app/app/src/main/java/com/xuan/life/android/ui/screen/LoginScreen.kt)
+  - 说明：当前 Android 登录 UI 已落地，但认证链路还没有同步 H5 的点选验证码 + `tempKey` 方案，后续补齐时仍应沿用这份视觉规范
 - `首页 Feed`
   - H5: [FeedHomeView.vue](../web-user-h5/src/views/FeedHomeView.vue)
   - Android: [HomeScreen.kt](../android-app/app/src/main/java/com/xuan/life/android/ui/screen/HomeScreen.kt)

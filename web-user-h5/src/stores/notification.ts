@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import { http } from '../services/http';
 import {
   notificationApi,
+  type EntityId,
   type NotificationStreamEventResponse,
   type UserNotificationResponse,
 } from '../services/api';
@@ -49,7 +50,7 @@ export const useUserNotificationStore = defineStore('user-notification', () => {
     return fetchPage(pageNo.value, false);
   }
 
-  async function markRead(notificationId: number) {
+  async function markRead(notificationId: EntityId) {
     const target = items.value.find((item) => item.notificationId === notificationId);
     if (target?.read) {
       return;
@@ -150,7 +151,7 @@ export const useUserNotificationStore = defineStore('user-notification', () => {
   }
 
   function mergeUnique(notificationItems: UserNotificationResponse[]) {
-    const seen = new Set<number>();
+    const seen = new Set<EntityId>();
     return notificationItems.filter((item) => {
       if (seen.has(item.notificationId)) {
         return false;

@@ -1,72 +1,92 @@
 <template>
-  <t-card title="帖子列表">
-    <div class="query-panel">
-      <t-form class="query-form" layout="inline">
-        <t-form-item label="关键词">
-          <t-input v-model="query.keyword" placeholder="正文 / 作者" clearable />
-        </t-form-item>
-        <t-form-item label="状态">
-          <t-select v-model="query.status" clearable :options="postStatusOptions" />
-        </t-form-item>
-        <t-form-item label="可见性">
-          <t-select v-model="query.visibility" clearable :options="visibilityOptions" />
-        </t-form-item>
-        <t-space>
-          <t-button theme="primary" @click="handleSearch">查询</t-button>
-          <t-button variant="outline" @click="resetSearch">重置</t-button>
-        </t-space>
-      </t-form>
-    </div>
+  <div class="admin-page">
+    <n-card class="admin-card compact-card" :bordered="false" title="筛选条件">
+      <div class="admin-filter-grid">
+        <n-form-item label="关键词">
+          <n-input v-model:value="query.keyword" clearable placeholder="正文 / 作者" />
+        </n-form-item>
+        <n-form-item label="状态">
+          <n-select v-model:value="query.status" clearable :options="postStatusOptions" placeholder="全部状态" />
+        </n-form-item>
+        <n-form-item label="可见范围">
+          <n-select
+            v-model:value="query.visibility"
+            clearable
+            :options="visibilityOptions"
+            placeholder="全部可见范围"
+          />
+        </n-form-item>
+      </div>
 
-    <t-table row-key="postId" :data="rows" :columns="columns" :loading="loading" hover>
-      <template #contentText="{ row }">
-        <div class="content-cell">{{ row.contentText }}</div>
-      </template>
-      <template #status="{ row }">
-        <t-tag theme="primary" variant="light-outline">{{ row.status }}</t-tag>
-      </template>
-      <template #visibility="{ row }">
-        <t-tag theme="success" variant="light-outline">{{ row.visibility }}</t-tag>
-      </template>
-      <template #publishedAt="{ row }">{{ formatDateTime(row.publishedAt) }}</template>
-      <template #operations="{ row }">
-        <t-button size="small" variant="outline" @click="openEditDialog(row)">编辑</t-button>
-      </template>
-    </t-table>
+      <div class="admin-form-actions">
+        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button secondary @click="resetSearch">重置</n-button>
+      </div>
+    </n-card>
 
-    <div class="table-footer">
-      <t-pagination
-        :current="query.pageNo"
-        :page-size="query.pageSize"
-        :total="total"
-        show-page-size
-        @change="handlePageChange"
+    <n-card class="admin-card admin-table-card" :bordered="false" title="帖子列表">
+      <n-data-table
+        remote
+        striped
+        :bordered="false"
+        :columns="columns"
+        :data="rows"
+        :loading="loading"
+        :row-key="rowKey"
       />
-    </div>
-  </t-card>
 
-  <t-dialog
-    v-model:visible="editVisible"
-    header="编辑帖子状态"
-    width="520px"
-    @confirm="submitEdit"
-  >
-    <t-form label-align="top">
-      <t-form-item label="帖子状态">
-        <t-select v-model="editForm.status" :options="postStatusOptions" />
-      </t-form-item>
-      <t-form-item label="可见性">
-        <t-select v-model="editForm.visibility" :options="visibilityOptions" />
-      </t-form-item>
-    </t-form>
-  </t-dialog>
+      <div class="admin-table-footer">
+        <n-pagination
+          :page="query.pageNo"
+          :page-size="query.pageSize"
+          :item-count="total"
+          show-size-picker
+          :page-sizes="[10, 20, 50]"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </n-card>
+
+    <n-modal v-model:show="editVisible" preset="card" title="编辑帖子状态" style="width: 520px" :bordered="false">
+      <div class="admin-filter-grid">
+        <n-form-item label="帖子状态">
+          <n-select v-model:value="editForm.status" :options="postStatusOptions" />
+        </n-form-item>
+        <n-form-item label="可见范围">
+          <n-select v-model:value="editForm.visibility" :options="visibilityOptions" />
+        </n-form-item>
+      </div>
+
+      <template #footer>
+        <div class="admin-form-actions">
+          <n-button secondary @click="editVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitEdit">保存</n-button>
+        </div>
+      </template>
+    </n-modal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { h, onMounted, reactive, ref } from 'vue';
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NFormItem,
+  NInput,
+  NModal,
+  NPagination,
+  NSelect,
+  type DataTableColumns,
+} from 'naive-ui';
+import StatusTag from '../../components/admin/StatusTag.vue';
 import { fetchPosts, updatePost } from '../../services/api';
 import type { AdminPostListItem } from '../../types/admin';
+import { formatPostStatusLabel, formatVisibilityLabel } from '../../utils/adminLabels';
+import { message } from '../../utils/feedback';
+import { formatDateTime } from '../../utils/format';
 
 const loading = ref(false);
 const total = ref(0);
@@ -81,35 +101,77 @@ const query = reactive({
   pageNo: 1,
   pageSize: 20,
   keyword: '',
-  status: '',
-  visibility: '',
+  status: null as string | null,
+  visibility: null as string | null,
 });
 
 const postStatusOptions = [
-  { label: 'PUBLISHED', value: 'PUBLISHED' },
-  { label: 'HIDDEN', value: 'HIDDEN' },
+  { label: '已发布', value: 'PUBLISHED' },
+  { label: '已隐藏', value: 'HIDDEN' },
 ];
 
 const visibilityOptions = [
-  { label: 'PUBLIC', value: 'PUBLIC' },
-  { label: 'PRIVATE', value: 'PRIVATE' },
+  { label: '公开可见', value: 'PUBLIC' },
+  { label: '仅自己可见', value: 'PRIVATE' },
 ];
 
-const columns = [
-  { colKey: 'postId', title: '帖子 ID', width: 120 },
-  { colKey: 'authorNickname', title: '作者' },
-  { colKey: 'contentText', title: '正文' },
-  { colKey: 'status', title: '状态', width: 120 },
-  { colKey: 'visibility', title: '可见性', width: 120 },
-  { colKey: 'likeCount', title: '点赞', width: 90 },
-  { colKey: 'commentCount', title: '评论', width: 90 },
-  { colKey: 'repostCount', title: '转发', width: 90 },
-  { colKey: 'publishedAt', title: '发布时间', width: 180 },
-  { colKey: 'operations', title: '操作', width: 120 },
+const columns: DataTableColumns<AdminPostListItem> = [
+  { key: 'postId', title: '帖子 ID', width: 110 },
+  { key: 'authorNickname', title: '作者', width: 140 },
+  {
+    key: 'contentText',
+    title: '正文',
+    render: (row) => h('div', { class: 'admin-content-cell' }, row.contentText),
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 120,
+    render: (row) =>
+      h(StatusTag, {
+        label: formatPostStatusLabel(row.status),
+        tone: row.status === 'PUBLISHED' ? 'success' : 'warning',
+      }),
+  },
+  {
+    key: 'visibility',
+    title: '可见范围',
+    width: 120,
+    render: (row) =>
+      h(StatusTag, {
+        label: formatVisibilityLabel(row.visibility),
+        tone: row.visibility === 'PUBLIC' ? 'info' : 'default',
+      }),
+  },
+  { key: 'likeCount', title: '点赞', width: 80 },
+  { key: 'commentCount', title: '评论', width: 80 },
+  { key: 'repostCount', title: '转发', width: 80 },
+  {
+    key: 'publishedAt',
+    title: '发布时间',
+    width: 180,
+    render: (row) => formatDateTime(row.publishedAt),
+  },
+  {
+    key: 'operations',
+    title: '操作',
+    width: 100,
+    render: (row) =>
+      h(
+        NButton,
+        {
+          size: 'small',
+          secondary: true,
+          type: 'primary',
+          onClick: () => openEditDialog(row),
+        },
+        { default: () => '编辑' },
+      ),
+  },
 ];
 
-function formatDateTime(value: string) {
-  return value ? value.replace('T', ' ') : '-';
+function rowKey(row: AdminPostListItem) {
+  return row.postId;
 }
 
 async function loadPosts() {
@@ -136,15 +198,20 @@ function handleSearch() {
 
 function resetSearch() {
   query.keyword = '';
-  query.status = '';
-  query.visibility = '';
+  query.status = null;
+  query.visibility = null;
   query.pageNo = 1;
   loadPosts();
 }
 
-function handlePageChange(pageInfo: { current: number; pageSize: number }) {
-  query.pageNo = pageInfo.current;
-  query.pageSize = pageInfo.pageSize;
+function handlePageChange(page: number) {
+  query.pageNo = page;
+  loadPosts();
+}
+
+function handlePageSizeChange(pageSize: number) {
+  query.pageNo = 1;
+  query.pageSize = pageSize;
   loadPosts();
 }
 
@@ -163,36 +230,10 @@ async function submitEdit() {
     status: editForm.status,
     visibility: editForm.visibility,
   });
-  MessagePlugin.success('帖子更新成功');
+  message.success('帖子更新成功');
   editVisible.value = false;
   loadPosts();
 }
 
 onMounted(loadPosts);
 </script>
-
-<style scoped>
-.query-panel {
-  margin-bottom: 16px;
-  padding: 14px 16px 0;
-  border-radius: 20px;
-  background: rgba(245, 248, 252, 0.88);
-}
-
-.query-form {
-  gap: 8px 0;
-}
-
-.table-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-.content-cell {
-  max-width: 360px;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.5;
-}
-</style>

@@ -80,7 +80,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showSuccessToast } from 'vant';
 import FeedPostCard from '../components/FeedPostCard.vue';
-import { followApi, postApi, userApi } from '../services/api';
+import { followApi, postApi, userApi, type EntityId } from '../services/api';
 import { getFallbackAvatar, mapPostCardToFeedPost, mapUserProfile } from '../services/view-models';
 import { useUserAuthStore } from '../stores/auth';
 
@@ -93,7 +93,7 @@ const posts = ref<ReturnType<typeof mapPostCardToFeedPost>[]>([]);
 const following = ref(false);
 const followSubmitting = ref(false);
 
-const viewedUserId = computed(() => Number(route.params.userId));
+const viewedUserId = computed(() => resolveRouteEntityId(route.params.userId));
 const isSelfProfile = computed(() => authStore.currentUser?.userId === viewedUserId.value);
 const postItems = computed(() => posts.value.map((post) => ({ sourceType: 'RECOMMENDED' as const, post })));
 
@@ -110,7 +110,7 @@ watch(
 
 async function loadUserProfile() {
   const userId = viewedUserId.value;
-  if (!Number.isFinite(userId)) {
+  if (!userId) {
     await router.replace('/discover');
     return;
   }
@@ -155,22 +155,22 @@ async function toggleFollow() {
   }
 }
 
-async function likePost(postId: number) {
+async function likePost(postId: EntityId) {
   const interaction = await postApi.toggleLike(postId);
   updatePostCounters(postId, interaction.likeCount, interaction.commentCount, interaction.repostCount);
 }
 
-async function commentPost(postId: number) {
+async function commentPost(postId: EntityId) {
   await router.push(`/posts/${postId}?focus=comment`);
 }
 
-async function repostPost(postId: number) {
+async function repostPost(postId: EntityId) {
   const interaction = await postApi.repost(postId);
   updatePostCounters(postId, interaction.likeCount, interaction.commentCount, interaction.repostCount);
   showSuccessToast('转发成功');
 }
 
-function updatePostCounters(postId: number, likeCount: number, commentCount: number, repostCount: number) {
+function updatePostCounters(postId: EntityId, likeCount: number, commentCount: number, repostCount: number) {
   posts.value = posts.value.map((item) =>
     item.postId === postId
       ? {
@@ -183,8 +183,12 @@ function updatePostCounters(postId: number, likeCount: number, commentCount: num
   );
 }
 
-async function goDetail(postId: number) {
+async function goDetail(postId: EntityId) {
   await router.push(`/posts/${postId}`);
+}
+
+function resolveRouteEntityId(value: string | string[] | undefined) {
+  return typeof value === 'string' ? value : value?.[0] ?? '';
 }
 
 async function goBack() {

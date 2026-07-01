@@ -1,78 +1,98 @@
 <template>
-  <t-card title="角色管理">
-    <div class="page-actions">
-      <t-button theme="primary" @click="openCreateDialog">新增角色</t-button>
+  <div class="admin-page">
+    <div class="admin-form-actions">
+      <n-button type="primary" @click="openCreateDialog">新增角色</n-button>
     </div>
 
-    <t-table row-key="roleId" :data="roles" :columns="columns" :loading="loading" bordered hover>
-      <template #status="{ row }">
-        <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light-outline">
-          {{ row.status === 1 ? '启用' : '停用' }}
-        </t-tag>
-      </template>
-      <template #isSystem="{ row }">
-        <t-tag :theme="row.isSystem === 1 ? 'warning' : 'default'" variant="light-outline">
-          {{ row.isSystem === 1 ? '系统角色' : '自定义角色' }}
-        </t-tag>
-      </template>
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-      <template #operations="{ row }">
-        <t-space>
-          <t-button size="small" variant="outline" @click="openEditDialog(row)">编辑</t-button>
-          <t-button size="small" variant="outline" @click="openAssignMenus(row)">分配菜单</t-button>
-          <t-button size="small" theme="danger" variant="outline" @click="handleDelete(row.roleId)">删除</t-button>
-        </t-space>
-      </template>
-    </t-table>
-  </t-card>
+    <n-card class="admin-card admin-table-card" :bordered="false" title="角色列表">
+      <n-data-table
+        striped
+        :bordered="false"
+        :columns="columns"
+        :data="roles"
+        :loading="loading"
+        :row-key="rowKey"
+      />
+    </n-card>
 
-  <t-dialog
-    v-model:visible="dialogVisible"
-    :header="editingRoleId ? '编辑角色' : '新增角色'"
-    width="560px"
-    @confirm="submitRole"
-  >
-    <t-form label-align="top">
-      <t-form-item label="角色编码">
-        <t-input v-model="form.roleCode" :disabled="editingSystemRole" />
-      </t-form-item>
-      <t-form-item label="角色名称">
-        <t-input v-model="form.roleName" />
-      </t-form-item>
-      <t-form-item label="备注">
-        <t-textarea v-model="form.remark" :autosize="{ minRows: 3, maxRows: 5 }" />
-      </t-form-item>
-      <t-form-item label="状态">
-        <t-select v-model="form.status" :disabled="editingSuperAdmin" :options="statusOptions" />
-      </t-form-item>
-    </t-form>
-  </t-dialog>
+    <n-modal
+      v-model:show="dialogVisible"
+      preset="card"
+      :title="editingRoleId ? '编辑角色' : '新增角色'"
+      style="width: 560px"
+      :bordered="false"
+    >
+      <div class="admin-filter-grid">
+        <n-form-item label="角色编码">
+          <n-input v-model:value="form.roleCode" :disabled="editingSystemRole" />
+        </n-form-item>
+        <n-form-item label="角色名称">
+          <n-input v-model:value="form.roleName" />
+        </n-form-item>
+        <n-form-item label="状态">
+          <n-select v-model:value="form.status" :disabled="editingSuperAdmin" :options="statusOptions" />
+        </n-form-item>
+        <n-form-item label="备注">
+          <n-input v-model:value="form.remark" type="textarea" :autosize="{ minRows: 3, maxRows: 5 }" />
+        </n-form-item>
+      </div>
 
-  <t-dialog
-    v-model:visible="menuDialogVisible"
-    :header="`分配菜单：${currentRoleName}`"
-    width="680px"
-    @confirm="submitMenus"
-  >
-    <t-tree
-      v-model="checkedMenuIds"
-      :data="menuTreeOptions"
-      value-mode="all"
-      checkable
-      expand-all
-      hover
-    />
-  </t-dialog>
+      <template #footer>
+        <div class="admin-form-actions">
+          <n-button secondary @click="dialogVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitRole">保存</n-button>
+        </div>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="menuDialogVisible"
+      preset="card"
+      :title="`分配菜单：${currentRoleName}`"
+      style="width: 720px"
+      :bordered="false"
+    >
+      <n-tree
+        v-model:checked-keys="checkedMenuIds"
+        block-line
+        cascade
+        checkable
+        check-on-click
+        expand-on-click
+        :data="menuTreeOptions"
+      />
+
+      <template #footer>
+        <div class="admin-form-actions">
+          <n-button secondary @click="menuDialogVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitMenus">保存授权</n-button>
+        </div>
+      </template>
+    </n-modal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NFormItem,
+  NInput,
+  NModal,
+  NSelect,
+  NTree,
+  type DataTableColumns,
+  type TreeOption,
+} from 'naive-ui';
+import StatusTag from '../../components/admin/StatusTag.vue';
 import { assignRoleMenus, createRole, deleteRole, fetchMenuTree, fetchRoles, updateRole } from '../../services/api';
 import { useAdminPermissionStore } from '../../stores/permission';
 import type { AdminMenuNode, AdminRoleDetail, RoleFormModel } from '../../types/admin';
-import type { TreeOptionData } from 'tdesign-vue-next';
+import { confirmAction, message } from '../../utils/feedback';
+import { formatDateTime } from '../../utils/format';
 
 const loading = ref(false);
 const router = useRouter();
@@ -94,14 +114,59 @@ const form = reactive<RoleFormModel>({
   status: 1,
 });
 
-const columns = [
-  { colKey: 'roleCode', title: '角色编码', width: 160 },
-  { colKey: 'roleName', title: '角色名称', width: 160 },
-  { colKey: 'status', title: '状态', width: 120 },
-  { colKey: 'isSystem', title: '类型', width: 140 },
-  { colKey: 'remark', title: '备注' },
-  { colKey: 'createdAt', title: '创建时间', width: 180 },
-  { colKey: 'operations', title: '操作', width: 260 },
+const columns: DataTableColumns<AdminRoleDetail> = [
+  { key: 'roleCode', title: '角色编码', width: 160 },
+  { key: 'roleName', title: '角色名称', width: 160 },
+  {
+    key: 'status',
+    title: '状态',
+    width: 120,
+    render: (row) =>
+      h(StatusTag, {
+        label: row.status === 1 ? '启用' : '停用',
+        tone: row.status === 1 ? 'success' : 'error',
+      }),
+  },
+  {
+    key: 'isSystem',
+    title: '类型',
+    width: 140,
+    render: (row) =>
+      h(StatusTag, {
+        label: row.isSystem === 1 ? '系统角色' : '自定义角色',
+        tone: row.isSystem === 1 ? 'warning' : 'default',
+      }),
+  },
+  { key: 'remark', title: '备注' },
+  {
+    key: 'createdAt',
+    title: '创建时间',
+    width: 180,
+    render: (row) => formatDateTime(row.createdAt),
+  },
+  {
+    key: 'operations',
+    title: '操作',
+    width: 240,
+    render: (row) =>
+      h('div', { class: 'admin-action-group' }, [
+        h(
+          NButton,
+          { size: 'small', secondary: true, type: 'primary', onClick: () => openEditDialog(row) },
+          { default: () => '编辑' },
+        ),
+        h(
+          NButton,
+          { size: 'small', secondary: true, onClick: () => openAssignMenus(row) },
+          { default: () => '分配菜单' },
+        ),
+        h(
+          NButton,
+          { size: 'small', tertiary: true, type: 'error', onClick: () => handleDelete(row.roleId) },
+          { default: () => '删除' },
+        ),
+      ]),
+  },
 ];
 
 const statusOptions = [
@@ -109,18 +174,18 @@ const statusOptions = [
   { label: '停用', value: 0 },
 ];
 
-const menuTreeOptions = computed(() => mapMenusToTree(menuTree.value));
+const menuTreeOptions = computed<TreeOption[]>(() => mapMenusToTree(menuTree.value));
 
-function mapMenusToTree(items: AdminMenuNode[]): TreeOptionData[] {
-  return items.map((item) => ({
-    label: item.menuName,
-    value: item.id,
-    children: mapMenusToTree(item.children),
-  }));
+function rowKey(row: AdminRoleDetail) {
+  return row.roleId;
 }
 
-function formatDateTime(value: string) {
-  return value ? value.replace('T', ' ') : '-';
+function mapMenusToTree(items: AdminMenuNode[]): TreeOption[] {
+  return items.map((item) => ({
+    label: item.menuName,
+    key: item.id,
+    children: mapMenusToTree(item.children),
+  }));
 }
 
 function resetForm() {
@@ -173,19 +238,19 @@ function openAssignMenus(role: AdminRoleDetail) {
 
 async function submitRole() {
   if (!form.roleCode.trim() || !form.roleName.trim()) {
-    MessagePlugin.warning('请填写完整角色信息');
+    message.warning('请填写完整角色信息');
     return;
   }
   if (editingRoleId.value) {
     await updateRole(editingRoleId.value, { ...form });
-    MessagePlugin.success('角色更新成功');
+    message.success('角色更新成功');
   } else {
     await createRole({ ...form });
-    MessagePlugin.success('角色创建成功');
+    message.success('角色创建成功');
   }
   dialogVisible.value = false;
   await permissionStore.bootstrap(router);
-  loadData();
+  await loadData();
 }
 
 async function submitMenus() {
@@ -193,29 +258,25 @@ async function submitMenus() {
     return;
   }
   await assignRoleMenus(menuRoleId.value, checkedMenuIds.value);
-  MessagePlugin.success('菜单分配成功');
+  message.success('菜单分配成功');
   menuDialogVisible.value = false;
   await permissionStore.bootstrap(router);
-  loadData();
+  await loadData();
 }
 
 async function handleDelete(roleId: number) {
-  if (!window.confirm('删除角色后，相关管理员将失去对应后台权限，确认继续吗？')) {
+  const confirmed = await confirmAction({
+    title: '删除角色',
+    content: '删除角色后，相关管理员会失去对应后台权限，确认继续吗？',
+  });
+  if (!confirmed) {
     return;
   }
   await deleteRole(roleId);
-  MessagePlugin.success('角色删除成功');
+  message.success('角色删除成功');
   await permissionStore.bootstrap(router);
-  loadData();
+  await loadData();
 }
 
 onMounted(loadData);
 </script>
-
-<style scoped>
-.page-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-</style>

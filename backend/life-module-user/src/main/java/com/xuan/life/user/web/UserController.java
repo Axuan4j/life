@@ -22,7 +22,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> me(@AuthenticationPrincipal LifeAuthenticatedUser currentUser) {
-        return ApiResponse.success(userProfileApplicationService.getProfile(currentUser.getUserId()));
+        return ApiResponse.success(userProfileApplicationService.getOwnProfile(currentUser.getUserId()));
     }
 
     @GetMapping("/{userId}")

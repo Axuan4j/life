@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:18080}
   servlet:
     encoding:
       enabled: true
@@ -14,16 +14,16 @@ spring:
   messages:
     encoding: UTF-8
   datasource:
-    url: ${LIFE_DB_URL:jdbc:mysql://localhost:13306/life?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
-    username: ${LIFE_DB_USERNAME:life}
-    password: ${LIFE_DB_PASSWORD:life123456}
+    url: ${LIFE_DB_URL}
+    username: ${LIFE_DB_USERNAME}
+    password: ${LIFE_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: ${LIFE_REDIS_HOST:localhost}
-      port: ${LIFE_REDIS_PORT:6379}
+      host: ${LIFE_REDIS_HOST}
+      port: ${LIFE_REDIS_PORT}
       database: ${LIFE_REDIS_DATABASE:0}
-      password: ${LIFE_REDIS_PASSWORD:123456}
+      password: ${LIFE_REDIS_PASSWORD:}
 
 management:
   endpoints:
@@ -34,21 +34,30 @@ management:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+logging:
+  level:
+    root: ${LIFE_LOG_LEVEL:INFO}
+    com.xuan.life: ${LIFE_APP_LOG_LEVEL:INFO}
+    org.springframework.web: ${LIFE_SPRING_WEB_LOG_LEVEL:INFO}
+    org.mybatis: ${LIFE_MYBATIS_LOG_LEVEL:INFO}
 
 life:
+  logging:
+    path: ${LIFE_LOG_PATH:/opt/life/logs}
+    max-history-days: ${LIFE_LOG_MAX_HISTORY_DAYS:30}
   security:
     jwt:
-      secret: ${LIFE_JWT_SECRET:life-life-life-life-life-life-life-life}
+      secret: ${LIFE_JWT_SECRET}
       issuer: life-app
       access-token-expire-minutes: 120
       refresh-token-expire-days: 7
   storage:
-    # 本地开发默认对接 docker compose 启动的 MinIO，避免 endpoint 为空时 Spring 启动直接失败。
-    endpoint: ${LIFE_STORAGE_ENDPOINT:http://localhost:9000}
-    access-key: ${LIFE_STORAGE_ACCESS_KEY:minioadmin}
-    secret-key: ${LIFE_STORAGE_SECRET_KEY:minioadmin}
-    bucket-name: ${LIFE_STORAGE_BUCKET:life-dev}
+    endpoint: ${LIFE_STORAGE_ENDPOINT}
+    access-key: ${LIFE_STORAGE_ACCESS_KEY}
+    secret-key: ${LIFE_STORAGE_SECRET_KEY}
+    bucket-name: ${LIFE_STORAGE_BUCKET}
   discover:
     hot-keywords:
       - keyword: 发帖体验

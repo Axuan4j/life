@@ -93,6 +93,18 @@
       <article v-for="item in userPosts" :key="item.postId" class="post-card">
         <p v-if="item.topic" class="post-topic"># {{ item.topic }}</p>
         <p v-if="item.displayContentText" class="post-content">{{ item.displayContentText }}</p>
+        <div v-if="item.poll" class="poll-card">
+          <div class="poll-head">
+            <span class="poll-badge">投票</span>
+            <strong>{{ item.poll.question }}</strong>
+          </div>
+          <div class="poll-options">
+            <div v-for="(option, index) in item.poll.options" :key="`${item.postId}-poll-${index}`" class="poll-option">
+              <span>{{ index + 1 }}</span>
+              <strong>{{ option }}</strong>
+            </div>
+          </div>
+        </div>
         <div v-if="item.images.length > 0" class="post-images">
           <div
             v-for="image in item.images"
@@ -349,6 +361,71 @@ async function logout() {
   margin: 0;
   color: var(--lf-color-text-primary);
   line-height: 1.7;
+}
+
+.poll-card {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff7f1 0%, #fff 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 166, 130, 0.22);
+}
+
+.poll-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.poll-head strong {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--lf-color-text-primary);
+}
+
+.poll-badge {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 145, 112, 0.16);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poll-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: rgba(247, 248, 252, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(229, 231, 235, 0.85);
+}
+
+.poll-option span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 145, 112, 0.12);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.poll-option strong {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .post-images {

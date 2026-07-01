@@ -27,8 +27,8 @@ export const useUserAuthStore = defineStore('user-auth', () => {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
-  async function login(username: string, password: string) {
-    const tokens = await authApi.login({ username, password });
+  async function login(username: string, password: string, tempKey: string) {
+    const tokens = await authApi.login({ username, password, tempKey });
     setTokens(tokens.accessToken, tokens.refreshToken);
     await fetchCurrentUser();
   }

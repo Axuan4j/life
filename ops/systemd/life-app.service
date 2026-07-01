@@ -1,0 +1,24 @@
+[Unit]
+Description=Life Spring Boot Application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=life
+Group=life
+WorkingDirectory=/opt/life/current
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:/etc/life/
+Environment=LIFE_LOG_PATH=/opt/life/logs
+EnvironmentFile=/etc/life/life-app.env
+ExecStart=/usr/bin/java -cp /opt/life/current/life-app.jar:/opt/life/current/lib/* com.xuan.life.LifeApplication
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

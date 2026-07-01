@@ -1,11 +1,11 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { feedApi, postApi } from '../services/api';
+import { feedApi, postApi, type CreatePostRequest, type EntityId } from '../services/api';
 import { mapFeedItem, mapPostCardToFeedPost, type FeedItemViewModel } from '../services/view-models';
 
 export interface FeedPost {
-  postId: number;
-  authorId: number;
+  postId: EntityId;
+  authorId: EntityId;
   authorName: string;
   authorBadge: string;
   contentText: string;
@@ -54,31 +54,28 @@ export const useFeedStore = defineStore('feed', () => {
     hasMore.value = page.hasMore;
   }
 
-  async function publishPost(contentText: string) {
-    const created = await postApi.create({
-      contentText,
-      medias: [],
-    });
+  async function publishPost(payload: CreatePostRequest) {
+    const created = await postApi.create(payload);
     items.value.unshift({
       sourceType: 'FOLLOWING',
       post: mapPostCardToFeedPost(created, 'FOLLOWING'),
     });
   }
 
-  async function toggleLike(postId: number) {
+  async function toggleLike(postId: EntityId) {
     const interaction = await postApi.toggleLike(postId);
     updatePostCounters(postId, interaction.likeCount, interaction.commentCount, interaction.repostCount);
     return interaction;
   }
 
-  async function repost(postId: number) {
+  async function repost(postId: EntityId) {
     const interaction = await postApi.repost(postId);
     updatePostCounters(postId, interaction.likeCount, interaction.commentCount, interaction.repostCount);
     await refresh();
     return interaction;
   }
 
-  function updatePostCounters(postId: number, likeCount: number, commentCount: number, repostCount: number) {
+  function updatePostCounters(postId: EntityId, likeCount: number, commentCount: number, repostCount: number) {
     items.value = items.value.map((item) =>
       item.post.postId === postId
         ? {

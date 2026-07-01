@@ -4,6 +4,7 @@ import {
   discoverApi,
   type DiscoverResultSort,
   type DiscoverResultType,
+  type EntityId,
   type PostInteractionResponse,
 } from '../services/api';
 import {
@@ -110,7 +111,7 @@ export const useDiscoverStore = defineStore('discover', () => {
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   }
 
-  function updateRecommendedAuthorFollowState(userId: number, following: boolean) {
+  function updateRecommendedAuthorFollowState(userId: EntityId, following: boolean) {
     if (!home.value) {
       return;
     }
@@ -127,7 +128,7 @@ export const useDiscoverStore = defineStore('discover', () => {
     };
   }
 
-  function updateResultPostCounters(postId: number, interaction: PostInteractionResponse) {
+  function updateResultPostCounters(postId: EntityId, interaction: PostInteractionResponse) {
     resultItems.value = resultItems.value.map((item) =>
       item.post.postId === postId
         ? {

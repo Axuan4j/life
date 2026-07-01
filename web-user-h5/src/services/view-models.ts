@@ -4,6 +4,7 @@ import type {
   DiscoverResultHeaderResponse,
   DiscoverTopicSquareItemResponse,
   DiscoverHotKeywordItemResponse,
+  EntityId,
   FeedItemResponse,
   PostDetailResponse,
   PostCardResponse,
@@ -15,6 +16,7 @@ import type {
   PostRepostItemResponse,
   UserProfileResponse,
 } from './api';
+import { parsePostContent, type StructuredPoll } from './post-content';
 
 export interface FeedImageCard {
   id: number;
@@ -23,8 +25,8 @@ export interface FeedImageCard {
 }
 
 export interface FeedPostViewModel {
-  postId: number;
-  authorId: number;
+  postId: EntityId;
+  authorId: EntityId;
   authorName: string;
   authorBadge: string;
   authorAvatarUrl: string;
@@ -34,6 +36,8 @@ export interface FeedPostViewModel {
   ipRegion: string;
   topic: string;
   location: string;
+  visibility: string;
+  poll: StructuredPoll | null;
   likeCount: number;
   commentCount: number;
   repostCount: number;
@@ -46,8 +50,8 @@ export interface FeedItemViewModel {
 }
 
 export interface CommentReplyViewModel {
-  commentId: number;
-  userId: number;
+  commentId: EntityId;
+  userId: EntityId;
   displayName: string;
   username: string;
   avatarUrl: string;
@@ -58,8 +62,8 @@ export interface CommentReplyViewModel {
 }
 
 export interface CommentViewModel {
-  commentId: number;
-  userId: number;
+  commentId: EntityId;
+  userId: EntityId;
   displayName: string;
   username: string;
   avatarUrl: string;
@@ -70,15 +74,15 @@ export interface CommentViewModel {
 }
 
 export interface LikedUserViewModel {
-  userId: number;
+  userId: EntityId;
   displayName: string;
   username: string;
   avatarUrl: string;
 }
 
 export interface RepostItemViewModel {
-  repostId: number;
-  userId: number;
+  repostId: EntityId;
+  userId: EntityId;
   displayName: string;
   username: string;
   avatarUrl: string;
@@ -114,7 +118,7 @@ export interface DiscoverTopicSquareViewModel {
 }
 
 export interface DiscoverRecommendedAuthorViewModel {
-  userId: number;
+  userId: EntityId;
   username: string;
   displayName: string;
   avatarUrl: string;
@@ -168,20 +172,6 @@ function mapMediaCards(medias: PostMediaResponse[]) {
   }));
 }
 
-function extractExplicitTopic(contentText: string) {
-  const matched = contentText.match(/^\s*#([^#\r\n]{1,20})#(?:\s+|$)/);
-  return matched?.[1]?.trim() ?? '';
-}
-
-function buildDisplayContent(contentText: string, topic: string) {
-  if (!topic) {
-    return contentText;
-  }
-  // 只有用户明确在正文开头写了 #话题#，列表卡片才把它作为独立话题展示，
-  // 避免过去那种“截正文前 14 个字冒充话题”的错误体验。
-  return contentText.replace(/^\s*#[^#\r\n]{1,20}#(?:\s+)?/, '').trimStart();
-}
-
 export function formatRelativeTime(isoDateTime: string) {
   const target = new Date(isoDateTime);
   if (Number.isNaN(target.getTime())) {
@@ -205,19 +195,22 @@ export function formatRelativeTime(isoDateTime: string) {
 
 export function mapPostCardToFeedPost(post: PostCardResponse, sourceType: FeedItemResponse['sourceType']): FeedPostViewModel {
   const authorName = post.authorNickname || post.authorUsername || `用户 ${post.authorId}`;
-  const topic = extractExplicitTopic(post.contentText);
+  const parsed = parsePostContent(post.contentText);
+  const visibility = post.visibility || 'PUBLIC';
   return {
     postId: post.postId,
     authorId: post.authorId,
     authorName,
     authorBadge: sourceType === 'FOLLOWING' ? '已关注' : '为你推荐',
     authorAvatarUrl: post.authorAvatarUrl ?? '',
-    contentText: post.contentText,
-    displayContentText: buildDisplayContent(post.contentText, topic),
+    contentText: parsed.bodyText,
+    displayContentText: parsed.bodyText,
     publishedAt: formatRelativeTime(post.publishedAt),
     ipRegion: post.ipRegion || '未知',
-    topic,
-    location: '公开可见',
+    topic: parsed.topic,
+    location: visibility === 'PRIVATE' ? '仅自己可见' : '公开可见',
+    visibility,
+    poll: parsed.poll,
     likeCount: post.likeCount,
     commentCount: post.commentCount,
     repostCount: post.repostCount,

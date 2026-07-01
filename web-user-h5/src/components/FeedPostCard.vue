@@ -28,6 +28,18 @@
     </div>
     <p v-if="item.post.topic" class="topic"># {{ item.post.topic }}</p>
     <p v-if="item.post.displayContentText" class="content">{{ item.post.displayContentText }}</p>
+    <div v-if="item.post.poll" class="poll-card">
+      <div class="poll-head">
+        <span class="poll-badge">投票</span>
+        <strong>{{ item.post.poll.question }}</strong>
+      </div>
+      <div class="poll-options">
+        <div v-for="(option, index) in item.post.poll.options" :key="`${item.post.postId}-poll-${index}`" class="poll-option">
+          <span>{{ index + 1 }}</span>
+          <strong>{{ option }}</strong>
+        </div>
+      </div>
+    </div>
     <div v-if="item.post.images.length > 0" class="image-grid">
       <div
         v-for="image in item.post.images"
@@ -60,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import type { EntityId } from '../services/api';
 import { getFallbackAvatar, type FeedItemViewModel } from '../services/view-models';
 
 withDefaults(
@@ -73,10 +86,10 @@ withDefaults(
 );
 
 const emit = defineEmits<{
-  (e: 'open', postId: number): void;
-  (e: 'like', postId: number): void;
-  (e: 'comment', postId: number): void;
-  (e: 'repost', postId: number): void;
+  (e: 'open', postId: EntityId): void;
+  (e: 'like', postId: EntityId): void;
+  (e: 'comment', postId: EntityId): void;
+  (e: 'repost', postId: EntityId): void;
 }>();
 </script>
 
@@ -169,6 +182,72 @@ const emit = defineEmits<{
   margin: 0 0 12px;
   font-size: 15px;
   line-height: 1.6;
+  color: var(--lf-color-text-primary);
+}
+
+.poll-card {
+  margin: 0 0 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff7f1 0%, #fff 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 166, 130, 0.22);
+}
+
+.poll-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.poll-head strong {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--lf-color-text-primary);
+}
+
+.poll-badge {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 145, 112, 0.16);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poll-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: rgba(247, 248, 252, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(229, 231, 235, 0.85);
+}
+
+.poll-option span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 145, 112, 0.12);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.poll-option strong {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--lf-color-text-primary);
 }
 

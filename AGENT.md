@@ -2,12 +2,12 @@
 
 ## 项目定位
 - 这是一个类似微博的社交内容平台单仓工程，优先完成 V1 核心闭环，而不是一开始追求大而全。
-- V1 聚焦：`用户名密码登录`、`发帖`、`关注/取关`、`首页 Feed（关注为主 + 少量推荐）`、`个人主页`。
+- 当前核心闭环已经覆盖：`登录`、`发帖`、`评论`、`点赞`、`转发`、`关注/取关`、`首页 Feed`、`发现页`、`消息中心`、`个人主页`、`后台管理`。
 
 ## 仓库结构
 - `backend/`：Java 17 + Spring Boot 单体后端，多模块拆分，统一部署。
-- `web-admin/`：Vue 3 + TDesign 管理端，负责内容审核、用户管理、基础运营。
-- `web-user-h5/`：Vue 3 + Vant 用户移动端 H5，负责核心内容消费和互动入口。
+- `web-admin/`：Vue 3 + Naive UI 管理端，负责概览、用户、帖子、 RBAC、广播消息等后台能力。
+- `web-user-h5/`：Vue 3 + Vant 用户移动端 H5，负责点选验证码登录、内容消费、发现、消息和互动入口。
 - `android-app/`：Kotlin + Jetpack Compose Android 端，第二阶段落地。
 - `docs/`：架构文档、数据模型、接口约定、产品规则。
 
@@ -16,21 +16,26 @@
 - 推荐分层：`controller -> service -> domain/entity -> mapper`，通用能力沉淀到 `life-common` / `life-infra`。
 - DTO / VO / Entity 必须分离，禁止直接暴露数据库实体给前端。
 - 核心业务模块：
+  - `life-module-admin`：后台账号、菜单、角色、权限、广播消息。
   - `life-security`：JWT、安全过滤链、角色隔离。
   - `life-module-user`：用户账户、资料、主页。
   - `life-module-content`：帖子、媒体、统计。
   - `life-module-social`：关注关系。
   - `life-module-feed`：首页 Feed、规则推荐、曝光记录。
+  - `life-module-message`：通知、广播消息、SSE 推送。
 
 ## API 与业务规则
 - 统一返回体：`code`、`message`、`data`、`requestId`。
 - 普通列表可用页码分页，Feed 流必须使用 `cursor` 分页，返回 `nextCursor` 和 `hasMore`。
+- C 端登录采用两段式校验：先取点选验证码，再校验验证码换 `tempKey`，最后携带 `tempKey` 完成登录。
 - API 前缀约定：
   - `/api/auth/*`
   - `/api/users/*`
   - `/api/posts/*`
   - `/api/follows/*`
   - `/api/feed/*`
+  - `/api/discover/*`
+  - `/api/notifications/*`
   - `/api/admin/*`
 - 首页 Feed 规则：
   - 以关注用户最近内容为主。

@@ -183,7 +183,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showSuccessToast } from 'vant';
-import { followApi } from '../services/api';
+import { followApi, type EntityId } from '../services/api';
 import { getFallbackAvatar } from '../services/view-models';
 import { useDiscoverStore } from '../stores/discover';
 
@@ -193,7 +193,7 @@ const discoverStore = useDiscoverStore();
 const refreshing = ref(false);
 const searchPanelVisible = ref(false);
 const searchKeyword = ref('');
-const followLoadingUserId = ref<number | null>(null);
+const followLoadingUserId = ref<EntityId | null>(null);
 
 const featuredKeywords = computed(() => discoverStore.home?.hotKeywords.slice(0, 3) ?? []);
 const trailingKeywords = computed(() => discoverStore.home?.hotKeywords.slice(3, 10) ?? []);
@@ -242,11 +242,11 @@ async function openTopic(topicKey: string) {
   });
 }
 
-async function goAuthorProfile(userId: number) {
+async function goAuthorProfile(userId: EntityId) {
   await router.push(`/users/${userId}`);
 }
 
-async function toggleFollow(userId: number, following: boolean) {
+async function toggleFollow(userId: EntityId, following: boolean) {
   followLoadingUserId.value = userId;
   try {
     if (following) {

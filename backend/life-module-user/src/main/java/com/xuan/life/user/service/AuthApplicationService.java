@@ -12,13 +12,14 @@ import com.xuan.life.user.entity.UserAccount;
 import com.xuan.life.user.entity.UserProfile;
 import com.xuan.life.user.mapper.UserAccountMapper;
 import com.xuan.life.user.mapper.UserProfileMapper;
-import com.xuan.life.user.web.request.LoginRequest;
 import com.xuan.life.user.web.request.RefreshTokenRequest;
 import com.xuan.life.user.web.request.RegisterRequest;
+import com.xuan.life.user.web.request.UserLoginRequest;
 import io.jsonwebtoken.Claims;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class AuthApplicationService {
     private final JwtTokenService jwtTokenService;
     private final LifeAuthenticatedUserLookupService authenticatedUserLookupService;
     private final IpRegionService ipRegionService;
+    private final LoginCaptchaService loginCaptchaService;
 
     public AuthApplicationService(
         UserAccountMapper userAccountMapper,
@@ -44,7 +46,8 @@ public class AuthApplicationService {
         AuthenticationManager authenticationManager,
         JwtTokenService jwtTokenService,
         LifeAuthenticatedUserLookupService authenticatedUserLookupService,
-        IpRegionService ipRegionService
+        IpRegionService ipRegionService,
+        LoginCaptchaService loginCaptchaService
     ) {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
@@ -53,6 +56,7 @@ public class AuthApplicationService {
         this.jwtTokenService = jwtTokenService;
         this.authenticatedUserLookupService = authenticatedUserLookupService;
         this.ipRegionService = ipRegionService;
+        this.loginCaptchaService = loginCaptchaService;
     }
 
     @Transactional
@@ -78,16 +82,12 @@ public class AuthApplicationService {
         profile.setBio("");
         userProfileMapper.insert(profile);
 
-        return login(new LoginRequest(request.username(), request.password()), clientIp);
+        return loginWithCredential(request.username(), request.password(), clientIp);
     }
 
-    public TokenPair login(LoginRequest request, String clientIp) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
-        LifeAuthenticatedUser authenticatedUser = (LifeAuthenticatedUser) authentication.getPrincipal();
-        updateLoginLocation(authenticatedUser.getUserId(), clientIp);
-        return jwtTokenService.issueTokenPair(authenticatedUser);
+    public TokenPair login(UserLoginRequest request, String clientIp) {
+        loginCaptchaService.consumeAndValidateTempKey(request.tempKey(), clientIp);
+        return loginWithCredential(request.username(), request.password(), clientIp);
     }
 
     public TokenPair refresh(RefreshTokenRequest request) {
@@ -114,5 +114,18 @@ public class AuthApplicationService {
         account.setLastLoginRegion(ipRegionService.resolveRegion(clientIp));
         account.setLastLoginAt(LocalDateTime.now());
         userAccountMapper.updateById(account);
+    }
+
+    private TokenPair loginWithCredential(String username, String password, String clientIp) {
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password)
+            );
+            LifeAuthenticatedUser authenticatedUser = (LifeAuthenticatedUser) authentication.getPrincipal();
+            updateLoginLocation(authenticatedUser.getUserId(), clientIp);
+            return jwtTokenService.issueTokenPair(authenticatedUser);
+        } catch (AuthenticationException exception) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
+        }
     }
 }

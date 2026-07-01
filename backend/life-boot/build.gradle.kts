@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.Sync
+import org.gradle.jvm.tasks.Jar
+
 plugins {
     java
     id("org.springframework.boot")
@@ -27,4 +30,18 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.register<Sync>("prepareReleaseLayout") {
+    dependsOn(tasks.named("jar"))
+
+    into(layout.buildDirectory.dir("release"))
+
+    from(tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+        rename { "life-app.jar" }
+    }
+
+    into("lib") {
+        from(configurations.runtimeClasspath)
+    }
 }

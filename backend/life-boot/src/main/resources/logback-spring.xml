@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="life-app"/>
+    <springProperty scope="context" name="logPath" source="life.logging.path" defaultValue="./logs"/>
+    <springProperty scope="context" name="maxHistoryDays" source="life.logging.max-history-days" defaultValue="30"/>
+    <springProperty scope="context" name="rootLogLevel" source="logging.level.root" defaultValue="INFO"/>
+    <springProperty scope="context" name="appLogLevel" source="logging.level.com.xuan.life" defaultValue="INFO"/>
+    <springProperty scope="context" name="springWebLogLevel" source="logging.level.org.springframework.web" defaultValue="INFO"/>
+    <springProperty scope="context" name="mybatisLogLevel" source="logging.level.org.mybatis" defaultValue="INFO"/>
+
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    <property name="FILE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{48} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logPath}/${appName}.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${logPath}/archive/${appName}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>${maxHistoryDays}</maxHistory>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+    </appender>
+
+    <logger name="com.xuan.life" level="${appLogLevel}"/>
+    <logger name="org.springframework.web" level="${springWebLogLevel}"/>
+    <logger name="org.mybatis" level="${mybatisLogLevel}"/>
+    <logger name="com.baomidou.mybatisplus" level="${mybatisLogLevel}"/>
+
+    <root level="${rootLogLevel}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+    </root>
+</configuration>

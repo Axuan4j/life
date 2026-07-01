@@ -28,7 +28,21 @@
         </div>
       </div>
 
-      <p class="content">{{ post.contentText }}</p>
+      <p v-if="post.topic" class="topic"># {{ post.topic }}</p>
+      <p v-if="post.displayContentText" class="content">{{ post.displayContentText }}</p>
+
+      <div v-if="post.poll" class="poll-card">
+        <div class="poll-head">
+          <span class="poll-badge">投票</span>
+          <strong>{{ post.poll.question }}</strong>
+        </div>
+        <div class="poll-options">
+          <div v-for="(option, index) in post.poll.options" :key="`${post.postId}-poll-${index}`" class="poll-option">
+            <span>{{ index + 1 }}</span>
+            <strong>{{ option }}</strong>
+          </div>
+        </div>
+      </div>
 
       <div v-if="post.images.length > 0" class="image-grid">
         <div
@@ -95,25 +109,20 @@
                     <van-icon name="location-o" class="mini-icon" />
                     <span>{{ comment.ipRegion }}</span>
                   </span>
-                  <van-button
-                    plain
-                    hairline
-                    size="mini"
+                  <button
+                    type="button"
                     class="meta-action"
                     @click="prepareReply(comment.commentId, comment.userId, comment.displayName)"
                   >
                     回复
-                  </van-button>
-                  <van-button
+                  </button>
+                  <button
                     v-if="canDeleteComment(comment.userId)"
-                    plain
-                    hairline
-                    size="mini"
                     class="meta-action danger"
                     @click="deleteComment(comment.commentId)"
                   >
                     删除
-                  </van-button>
+                  </button>
                 </div>
 
                 <div v-if="comment.replies.length > 0" class="reply-list">
@@ -142,25 +151,20 @@
                           <van-icon name="location-o" class="mini-icon" />
                           <span>{{ reply.ipRegion }}</span>
                         </span>
-                        <van-button
-                          plain
-                          hairline
-                          size="mini"
+                        <button
+                          type="button"
                           class="meta-action"
                           @click="prepareReply(comment.commentId, reply.userId, reply.displayName)"
                         >
                           回复
-                        </van-button>
-                        <van-button
+                        </button>
+                        <button
                           v-if="canDeleteComment(reply.userId)"
-                          plain
-                          hairline
-                          size="mini"
                           class="meta-action danger"
                           @click="deleteComment(reply.commentId)"
                         >
                           删除
-                        </van-button>
+                        </button>
                       </div>
                     </div>
                   </article>
@@ -223,26 +227,10 @@
           :placeholder="replyTarget ? `回复 ${replyTarget.displayName}...` : '说点什么吧...'"
         />
         <div v-if="emojiPanelVisible" class="emoji-panel">
-          <div v-if="recentEmojis.length > 0" class="emoji-section">
-            <div class="emoji-section-title">最近使用</div>
-            <div class="emoji-grid">
-              <van-button
-                v-for="emoji in recentEmojis"
-                :key="`recent-${emoji}`"
-                plain
-                hairline
-                size="small"
-                class="emoji-btn"
-                @click="appendEmoji(emoji)"
-              >
-                {{ emoji }}
-              </van-button>
-            </div>
-          </div>
           <div class="emoji-section">
-            <div class="emoji-section-title">全部表情</div>
+            <div class="emoji-section-title">常用表情</div>
             <van-swipe :show-indicators="emojiPages.length > 1" class="emoji-swipe" :loop="false">
-              <van-swipe-item v-for="(page, pageIndex) in emojiPages" :key="`page-${pageIndex}`">
+              <van-swipe-item v-for="(page, pageIndex) in emojiPages" :key="`emoji-page-${pageIndex}`">
                 <div class="emoji-grid">
                   <van-button
                     v-for="emoji in page"
@@ -313,6 +301,7 @@ import {
   type PostInteractionViewModel,
   type RepostItemViewModel,
 } from '../services/view-models';
+import type { EntityId } from '../services/api';
 
 type DetailTabKey = 'reposts' | 'comments' | 'likes';
 
@@ -335,17 +324,22 @@ const interaction = ref<PostInteractionViewModel>({
 });
 const commentText = ref('');
 const submittingComment = ref(false);
-const replyTarget = ref<{ parentCommentId: number; replyToUserId: number; displayName: string } | null>(null);
+const replyTarget = ref<{ parentCommentId: EntityId; replyToUserId: EntityId; displayName: string } | null>(null);
 const composerFieldRef = useTemplateRef('composerFieldRef');
-const postId = computed(() => Number(route.params.postId));
+const postId = computed(() => resolveRouteEntityId(route.params.postId));
 const EMOJI_RECENT_KEY = 'life_user_recent_emojis';
 const emojis = [
-  '😀', '😁', '😂', '🤣', '🥹', '😍', '😘', '😎',
-  '🤔', '😭', '😡', '😴', '😇', '🥳', '🙌', '🤝',
-  '👍', '👀', '👏', '🎉', '❤️', '💯', '🔥', '✨',
+  '😀', '😁', '😂', '🤣',
+  '😊', '😍', '😘', '😎',
+  '🥹', '😭', '😡', '🤔',
+  '👍', '👏', '❤️', '🎉',
+  '😄', '😉', '😌', '🥰',
+  '😋', '😅', '😴', '🙏',
+  '💪', '👌', '👀', '✨',
+  '💖', '🔥', '🌹', '🎁',
 ];
+const emojiPages = computed(() => chunkArray(emojis, 16));
 const recentEmojis = ref<string[]>(loadRecentEmojis());
-const emojiPages = computed(() => chunkArray(emojis, 8));
 
 const tabs = computed(() => [
   { key: 'reposts' as const, label: `转发 ${interaction.value.repostCount}` },
@@ -376,6 +370,10 @@ watch(
 );
 
 async function loadPostDetail() {
+  if (!postId.value) {
+    await router.replace('/');
+    return;
+  }
   // 详情页把正文、评论、转发一次取回，Tab 切换只切视图，不再造成二次闪动。
   const [detail, commentList, repostList] = await Promise.all([
     postApi.getDetail(postId.value),
@@ -411,7 +409,7 @@ function openCommentComposer() {
   composerVisible.value = true;
 }
 
-function prepareReply(parentCommentId: number, replyToUserId: number, displayName: string) {
+function prepareReply(parentCommentId: EntityId, replyToUserId: EntityId, displayName: string) {
   activeTab.value = 'comments';
   replyTarget.value = {
     parentCommentId,
@@ -421,7 +419,7 @@ function prepareReply(parentCommentId: number, replyToUserId: number, displayNam
   composerVisible.value = true;
 }
 
-function canDeleteComment(userId: number) {
+function canDeleteComment(userId: EntityId) {
   return authStore.currentUser?.userId === userId;
 }
 
@@ -449,10 +447,14 @@ async function submitComment() {
   }
 }
 
-async function deleteComment(commentId: number) {
+async function deleteComment(commentId: EntityId) {
   await postApi.deleteComment(postId.value, commentId);
   await loadPostDetail();
   showSuccessToast('删除成功');
+}
+
+function resolveRouteEntityId(value: string | string[] | undefined) {
+  return typeof value === 'string' ? value : value?.[0] ?? '';
 }
 
 async function focusComposerInput() {
@@ -617,12 +619,84 @@ function chunkArray<T>(items: T[], size: number) {
   font-size: 12px;
 }
 
-.content {
+.topic {
   margin: 12px 0 0;
+  color: var(--lf-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.content {
+  margin: 10px 0 0;
   color: var(--lf-color-text-primary);
   font-size: 16px;
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+.poll-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff7f1 0%, #fff 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 166, 130, 0.22);
+}
+
+.poll-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.poll-head strong {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--lf-color-text-primary);
+}
+
+.poll-badge {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 145, 112, 0.16);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poll-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: rgba(247, 248, 252, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(229, 231, 235, 0.85);
+}
+
+.poll-option span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 145, 112, 0.12);
+  color: #eb6b47;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.poll-option strong {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .image-grid {
@@ -720,11 +794,14 @@ function chunkArray<T>(items: T[], size: number) {
 }
 
 .meta-action {
+  appearance: none;
   border: none;
   background: transparent;
   color: var(--lf-color-primary);
   font-size: 12px;
   padding: 0;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .meta-action.danger {

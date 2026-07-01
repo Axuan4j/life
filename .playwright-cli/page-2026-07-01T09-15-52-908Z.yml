@@ -1,0 +1,21 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: Quick Community
+    - strong [ref=e8]: Life Feed
+    - paragraph [ref=e9]: 记录生活，连接世界
+  - img "Life Feed Logo" [ref=e11]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - strong [ref=e14]: 密码登录
+      - generic [ref=e15]: 安全登录，开启内容之旅
+    - textbox "请输入用户名" [ref=e19]: life_user
+    - textbox "请输入密码" [ref=e23]: life123456
+    - generic [ref=e24]:
+      - generic [ref=e25]: 账号密码均支持安全校验
+      - generic [ref=e26]: 忘记密码
+    - generic [ref=e27]:
+      - button "登录" [ref=e28] [cursor=pointer]:
+        - generic [ref=e30]: 登录
+      - button "注册账号" [ref=e31] [cursor=pointer]:
+        - generic [ref=e33]: 注册账号
+    - paragraph [ref=e34]: 登录即表示同意《用户协议》与《隐私政策》

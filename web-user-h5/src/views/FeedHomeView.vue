@@ -36,6 +36,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showSuccessToast } from 'vant';
 import FeedPostCard from '../components/FeedPostCard.vue';
+import type { EntityId } from '../services/api';
 import { useFeedStore } from '../stores/feed';
 
 type FeedTab = 'following' | 'recommended';
@@ -69,19 +70,19 @@ async function onLoad() {
   loading.value = false;
 }
 
-async function goDetail(postId: number) {
+async function goDetail(postId: EntityId) {
   await router.push(`/posts/${postId}`);
 }
 
-async function likePost(postId: number) {
+async function likePost(postId: EntityId) {
   await feedStore.toggleLike(postId);
 }
 
-async function commentPost(postId: number) {
+async function commentPost(postId: EntityId) {
   await router.push(`/posts/${postId}?focus=comment`);
 }
 
-async function repostPost(postId: number) {
+async function repostPost(postId: EntityId) {
   await feedStore.repost(postId);
   showSuccessToast('转发成功');
 }

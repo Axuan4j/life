@@ -1,77 +1,144 @@
 <template>
-  <t-layout class="layout-shell">
-    <t-aside class="layout-aside">
-      <div class="brand-panel">
-        <strong>Life Admin</strong>
-        <p>内容、用户、权限和广播消息统一收口在这一套后台工作台里。</p>
+  <n-layout has-sider class="admin-shell">
+    <n-layout-sider
+      bordered
+      collapse-mode="width"
+      :collapsed="shellStore.sidebarCollapsed"
+      :collapsed-width="72"
+      :width="248"
+      class="admin-shell__sider"
+    >
+      <div class="admin-logo-card">
+        <div class="admin-logo-mark">L</div>
+        <div v-show="!shellStore.sidebarCollapsed" class="admin-logo-copy">
+          <strong>Life 后台</strong>
+          <span>管理中心</span>
+        </div>
       </div>
-      <div class="nav-panel">
-        <t-menu
-          :value="activeMenu"
-          :theme="shellStore.isDarkMode ? 'dark' : 'light'"
-          class="side-menu"
-          @change="handleMenuChange"
-        >
-          <SideMenuBranch v-for="item in menuItems" :key="item.id" :item="item" />
-        </t-menu>
-      </div>
-    </t-aside>
-    <t-layout class="layout-main">
-      <t-header class="layout-header">
-        <div class="page-intro">
-          <div class="page-copy">
+
+      <n-scrollbar class="admin-menu-scroll">
+        <n-menu
+          v-model:expanded-keys="expandedKeys"
+          :value="activeMenuKey"
+          :collapsed="shellStore.sidebarCollapsed"
+          :collapsed-width="72"
+          :collapsed-icon-size="20"
+          :options="menuOptions"
+          accordion
+          class="admin-menu"
+          @update:value="handleMenuSelect"
+        />
+      </n-scrollbar>
+    </n-layout-sider>
+
+    <n-layout class="admin-shell__main">
+      <header class="admin-topbar">
+        <div class="admin-topbar__left">
+          <n-button quaternary circle @click="shellStore.toggleSidebarCollapsed()">
+            <template #icon>
+              <n-icon :component="shellStore.sidebarCollapsed ? MenuOutline : MenuSharp" />
+            </template>
+          </n-button>
+
+          <div class="admin-topbar__copy">
             <strong>{{ currentTitle }}</strong>
-            <t-breadcrumb>
-              <t-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">
-                {{ item.title }}
-              </t-breadcrumb-item>
-            </t-breadcrumb>
+            <n-breadcrumb>
+              <n-breadcrumb-item v-for="item in breadcrumbs" :key="item.key">
+                {{ item.label }}
+              </n-breadcrumb-item>
+            </n-breadcrumb>
           </div>
         </div>
-        <div class="header-right">
-          <div class="operator-chip">
-            <span class="operator-name">{{ operatorLabel }}</span>
-            <span class="operator-role">{{ roleSummary }}</span>
+
+        <div class="admin-topbar__right">
+          <div class="admin-operator-chip">
+            <n-avatar round :size="38">
+              {{ operatorInitial }}
+            </n-avatar>
+            <div class="admin-operator-chip__copy">
+              <strong>{{ operatorLabel }}</strong>
+              <span>{{ roleSummary }}</span>
+            </div>
           </div>
-          <t-button theme="default" variant="outline" class="header-button" @click="shellStore.toggleThemeMode()">
-            {{ shellStore.isDarkMode ? '浅色模式' : '深色模式' }}
-          </t-button>
-          <t-button theme="default" variant="outline" class="header-button" @click="handleLogout">退出登录</t-button>
+
+          <n-tooltip>
+            <template #trigger>
+              <n-button quaternary circle @click="shellStore.toggleThemeMode()">
+                <template #icon>
+                  <n-icon :component="shellStore.isDarkMode ? SunnyOutline : MoonOutline" />
+                </template>
+              </n-button>
+            </template>
+            {{ shellStore.isDarkMode ? '切换浅色模式' : '切换深色模式' }}
+          </n-tooltip>
+
+          <n-button secondary type="primary" @click="handleLogout">退出登录</n-button>
         </div>
-      </t-header>
-      <div class="layout-tabs" v-if="routeTabs.length > 0">
-        <t-tabs :value="activeTabPath" class="route-tabs" theme="card" @change="handleTabChange" @remove="handleTabRemove">
-          <t-tab-panel
+      </header>
+
+      <div v-if="routeTabs.length > 0" class="admin-tabs-card">
+        <n-tabs
+          :value="activeTabPath"
+          type="card"
+          closable
+          size="small"
+          @update:value="handleTabChange"
+          @close="handleTabRemove"
+        >
+          <n-tab-pane
             v-for="tab in routeTabs"
             :key="tab.routePath"
-            :value="tab.routePath"
-            :label="tab.title"
-            :removable="tab.closable"
+            :name="tab.routePath"
+            :tab="tab.title"
+            :closable="tab.closable"
           />
-        </t-tabs>
+        </n-tabs>
       </div>
-      <t-content class="layout-content">
-        <div class="content-shell">
+
+      <n-layout-content class="admin-content">
+        <div class="admin-content__inner">
           <router-view v-slot="{ Component, route: currentRoute }">
-            <!-- 打开的业务页放进 keep-alive，标签切换时保留筛选条件和列表滚动，不用每次重查。 -->
             <keep-alive :include="cachedViewNames">
               <component :is="Component" v-if="Component" :key="currentRoute.fullPath" />
             </keep-alive>
           </router-view>
         </div>
-      </t-content>
-    </t-layout>
-  </t-layout>
+      </n-layout-content>
+    </n-layout>
+  </n-layout>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import SideMenuBranch from '../components/layout/SideMenuBranch.vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
+import {
+  NAvatar,
+  NBreadcrumb,
+  NBreadcrumbItem,
+  NButton,
+  NIcon,
+  NLayout,
+  NLayoutContent,
+  NLayoutSider,
+  NMenu,
+  NScrollbar,
+  NTabPane,
+  NTabs,
+  NTooltip,
+  type MenuOption,
+} from 'naive-ui';
+import { MenuOutline, MenuSharp, MoonOutline, SunnyOutline } from '@vicons/ionicons5';
 import { logout } from '../services/api';
 import { useAdminAuthStore } from '../stores/auth';
 import { useAdminPermissionStore } from '../stores/permission';
 import { useAdminShellStore } from '../stores/shell';
+import type { AdminMenuNode } from '../types/admin';
+import { renderMenuIcon } from '../utils/iconRegistry';
+
+interface BreadcrumbItem {
+  key: string;
+  label: string;
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -79,27 +146,25 @@ const authStore = useAdminAuthStore();
 const permissionStore = useAdminPermissionStore();
 const shellStore = useAdminShellStore();
 
-const menuItems = computed(() => permissionStore.menus.filter((item) => item.visible === 1 && item.status === 1));
-const activeMenu = computed(() => route.path);
+const expandedKeys = ref<string[]>([]);
+
+const activeMenuKey = computed(() => route.path);
 const routeTabs = computed(() => shellStore.tabs);
 const activeTabPath = computed(() => shellStore.activeTabPath);
 const cachedViewNames = computed(() => shellStore.cachedViewNames);
 const operatorLabel = computed(() => authStore.operator?.nickname || authStore.operator?.username || '管理员');
+const operatorInitial = computed(() => operatorLabel.value.trim().slice(0, 1).toUpperCase());
 const roleSummary = computed(() => authStore.operator?.adminRoleNames.join(' / ') || '未分配角色');
-const currentTitle = computed(() => breadcrumbs.value[breadcrumbs.value.length - 1]?.title ?? '控制台');
-const breadcrumbs = computed(() =>
-  route.matched
-    .filter((item) => typeof item.meta.title === 'string' && item.path !== '/')
-    .map((item) => ({
-      path: item.path,
-      title: String(item.meta.title),
-    })),
-);
+
+const menuOptions = computed<MenuOption[]>(() => permissionStore.menus.filter(isVisibleMenu).map(mapMenuOption));
+const breadcrumbs = computed(() => buildBreadcrumbs(route, permissionStore.menus));
+const currentTitle = computed(() => breadcrumbs.value[breadcrumbs.value.length - 1]?.label ?? '首页');
 
 watch(
   () => route.fullPath,
   () => {
     shellStore.syncRoute(route, permissionStore.homePath);
+    expandedKeys.value = collectExpandedKeys(route.path, permissionStore.menus);
   },
   { immediate: true },
 );
@@ -110,21 +175,104 @@ watch(
     const fallbackPath = shellStore.pruneTabs(permissionStore.menus, permissionStore.homePath);
     if (fallbackPath && fallbackPath !== route.path) {
       router.replace(fallbackPath);
+      return;
     }
+    expandedKeys.value = collectExpandedKeys(route.path, permissionStore.menus);
   },
   { deep: true, immediate: true },
 );
 
-async function handleMenuChange(value: string | number) {
-  await router.push(String(value));
+function isVisibleMenu(item: AdminMenuNode) {
+  return item.visible === 1 && item.status === 1;
 }
 
-async function handleTabChange(value: string | number) {
-  await router.push(String(value));
+function mapMenuOption(item: AdminMenuNode): MenuOption {
+  const visibleChildren = item.children.filter(isVisibleMenu);
+  return {
+    key: item.menuType === 'PAGE' ? item.routePath : `dir-${item.id}`,
+    label: item.menuName,
+    icon: renderMenuIcon(item.iconName),
+    children: visibleChildren.length ? visibleChildren.map(mapMenuOption) : undefined,
+    disabled: item.menuType !== 'PAGE' && !visibleChildren.length,
+    routePath: item.routePath,
+  } as MenuOption;
 }
 
-async function handleTabRemove(context: { value: string | number }) {
-  const nextPath = shellStore.closeTab(String(context.value), permissionStore.homePath);
+function collectExpandedKeys(currentPath: string, items: AdminMenuNode[], trail: string[] = []): string[] {
+  for (const item of items) {
+    if (!isVisibleMenu(item)) {
+      continue;
+    }
+
+    const nextTrail = item.menuType === 'DIRECTORY' ? [...trail, `dir-${item.id}`] : trail;
+    if (item.menuType === 'PAGE' && item.routePath === currentPath) {
+      return nextTrail;
+    }
+
+    if (item.children.length) {
+      const found = collectExpandedKeys(currentPath, item.children, nextTrail);
+      if (found.length) {
+        return found;
+      }
+    }
+  }
+  return [];
+}
+
+function findMenuTrail(currentPath: string, items: AdminMenuNode[], parents: AdminMenuNode[] = []): AdminMenuNode[] {
+  for (const item of items) {
+    if (!isVisibleMenu(item)) {
+      continue;
+    }
+
+    if (item.menuType === 'PAGE' && item.routePath === currentPath) {
+      return [...parents, item];
+    }
+
+    if (item.children.length) {
+      const found = findMenuTrail(currentPath, item.children, [...parents, item]);
+      if (found.length) {
+        return found;
+      }
+    }
+  }
+  return [];
+}
+
+function buildBreadcrumbs(currentRoute: RouteLocationNormalizedLoaded, menus: AdminMenuNode[]): BreadcrumbItem[] {
+  const menuTrail = findMenuTrail(currentRoute.path, menus);
+  if (menuTrail.length) {
+    return menuTrail.map((item) => ({
+      key: String(item.id),
+      label: item.menuName,
+    }));
+  }
+
+  if (typeof currentRoute.meta.title === 'string') {
+    return [
+      {
+        key: currentRoute.path,
+        label: currentRoute.meta.title,
+      },
+    ];
+  }
+
+  return [];
+}
+
+async function handleMenuSelect(value: string) {
+  if (!value.startsWith('/')) {
+    return;
+  }
+  await router.push(value);
+}
+
+async function handleTabChange(value: string) {
+  await router.push(value);
+}
+
+async function handleTabRemove(routePath: string) {
+  const nextPath = shellStore.closeTab(routePath, permissionStore.homePath);
   if (nextPath && nextPath !== route.path) {
     await router.push(nextPath);
   }
@@ -144,188 +292,169 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-.layout-shell {
+.admin-shell {
   min-height: 100vh;
-  background: transparent;
-  color: var(--td-text-color-primary);
 }
 
-.layout-aside {
-  width: 284px;
-  background: linear-gradient(180deg, rgba(255, 252, 249, 0.9) 0%, rgba(247, 250, 255, 0.94) 100%);
-  border-right: 1px solid rgba(25, 35, 52, 0.08);
-  padding: 22px 14px;
-  backdrop-filter: blur(16px);
+.admin-shell__sider {
+  background: rgba(255, 255, 255, 0.88);
 }
 
-.brand-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 18px;
-  padding: 18px;
-  border: 1px solid rgba(25, 35, 52, 0.06);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top right, rgba(255, 210, 198, 0.62) 0%, transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(251, 245, 241, 0.96) 100%);
-  box-shadow: 0 18px 36px rgba(24, 35, 52, 0.06);
-}
-
-.brand-badge {
-  display: inline-flex;
-  width: fit-content;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(232, 109, 79, 0.12);
-  color: #d25d40;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.brand-panel strong {
-  color: var(--td-text-color-primary);
-  font-size: 22px;
-}
-
-.brand-panel p {
-  margin: 0;
-  color: var(--td-text-color-secondary);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.nav-panel {
-  padding: 10px;
-  border: 1px solid rgba(25, 35, 52, 0.06);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 16px 34px rgba(24, 35, 52, 0.05);
-}
-
-.side-menu {
-  border-radius: 18px;
-  background: transparent !important;
-}
-
-.layout-main {
-  min-width: 0;
-}
-
-.layout-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 88px;
-  margin: 16px 18px 0;
-  padding: 18px 22px;
-  border: 1px solid rgba(25, 35, 52, 0.08);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 16px 34px rgba(24, 35, 52, 0.05);
-}
-
-.page-intro {
+.admin-logo-card {
   display: flex;
   align-items: center;
   gap: 14px;
-  min-width: 0;
+  height: 72px;
+  padding: 0 18px;
 }
 
-.page-kicker {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(237, 123, 89, 0.16) 0%, rgba(89, 159, 255, 0.14) 100%);
-  color: #d46042;
-  font-size: 11px;
+.admin-logo-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #4f7cff 0%, #76a4ff 100%);
+  color: #fff;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  box-shadow: 0 10px 24px rgba(79, 124, 255, 0.24);
 }
 
-.page-copy {
-  min-width: 0;
-}
-
-.page-copy strong {
-  display: block;
-  color: var(--td-text-color-primary);
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.page-copy :deep(.t-breadcrumb) {
-  margin-top: 6px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.operator-chip {
+.admin-logo-copy {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  padding: 10px 14px;
-  border-radius: 16px;
-  background: rgba(244, 247, 251, 0.86);
+  min-width: 0;
 }
 
-.operator-name {
-  color: var(--td-text-color-primary);
-  font-size: 14px;
-  font-weight: 600;
+.admin-logo-copy strong {
+  color: var(--life-text);
+  font-size: 17px;
+  font-weight: 700;
 }
 
-.operator-role {
-  color: var(--td-text-color-secondary);
+.admin-logo-copy span {
+  margin-top: 4px;
+  color: var(--life-text-soft);
   font-size: 12px;
 }
 
-.header-button {
-  min-width: 96px;
+.admin-menu-scroll {
+  height: calc(100vh - 72px);
+  padding: 8px 12px 18px;
 }
 
-.layout-tabs {
-  margin: 12px 18px 0;
-  padding: 0 6px;
+.admin-menu :deep(.n-menu-item-content),
+.admin-menu :deep(.n-submenu-children .n-menu-item-content),
+.admin-menu :deep(.n-submenu-children .n-submenu-children-header) {
+  font-size: 14px;
 }
 
-.layout-content {
-  padding: 16px 18px 24px;
+.admin-menu :deep(.n-menu-item-content.n-menu-item-content--selected),
+.admin-menu :deep(.n-menu-item-content.n-menu-item-content--selected:hover) {
+  background: linear-gradient(135deg, rgba(79, 124, 255, 0.14) 0%, rgba(121, 169, 255, 0.18) 100%);
+  color: var(--life-primary);
+}
+
+.admin-shell__main {
   background: transparent;
 }
 
-.content-shell {
-  width: 100%;
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 18px 18px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--life-border);
+  border-radius: 18px;
+  background: var(--life-card);
+  box-shadow: var(--life-shadow-soft);
 }
 
-.route-tabs :deep(.t-tabs__nav-item) {
-  border-radius: 14px 14px 0 0;
+.admin-topbar__left,
+.admin-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.side-menu :deep(.t-menu__item),
-.side-menu :deep(.t-menu__expand-icon + .t-menu__content) {
+.admin-topbar__copy {
+  min-width: 0;
+}
+
+.admin-topbar__copy strong {
+  display: block;
+  color: var(--life-text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin-topbar__copy :deep(.n-breadcrumb) {
+  margin-top: 6px;
+}
+
+.admin-operator-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--life-border);
   border-radius: 14px;
+  background: var(--life-bg-soft);
 }
 
-html[theme-mode='dark'] .layout-aside,
-html[theme-mode='dark'] .layout-header,
-html[theme-mode='dark'] .nav-panel,
-html[theme-mode='dark'] .brand-panel,
-html[theme-mode='dark'] .operator-chip {
-  background: rgba(18, 24, 33, 0.86);
-  border-color: rgba(255, 255, 255, 0.06);
+.admin-operator-chip__copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-operator-chip__copy strong {
+  color: var(--life-text);
+  font-size: 14px;
+}
+
+.admin-operator-chip__copy span {
+  margin-top: 4px;
+  color: var(--life-text-soft);
+  font-size: 12px;
+}
+
+.admin-tabs-card {
+  margin: 14px 18px 0;
+  padding: 0 12px;
+  border: 1px solid var(--life-border);
+  border-radius: 16px;
+  background: var(--life-card);
+  box-shadow: var(--life-shadow-soft);
+}
+
+.admin-tabs-card :deep(.n-tabs-nav) {
+  padding-top: 10px;
+}
+
+.admin-tabs-card :deep(.n-tabs-tab) {
+  border-radius: 12px 12px 0 0;
+}
+
+.admin-content {
+  min-height: 0;
+}
+
+.admin-content__inner {
+  padding: 18px;
+}
+
+@media (max-width: 1080px) {
+  .admin-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-topbar__right {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
 }
 </style>

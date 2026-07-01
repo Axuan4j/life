@@ -4,6 +4,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import type { AdminMenuNode } from '../types/admin';
 
 const ADMIN_THEME_MODE_KEY = 'life_admin_theme_mode';
+const ADMIN_SIDEBAR_COLLAPSED_KEY = 'life_admin_sidebar_collapsed';
 
 type AdminThemeMode = 'light' | 'dark';
 
@@ -35,10 +36,18 @@ function readThemeMode(): AdminThemeMode {
   return localStorage.getItem(ADMIN_THEME_MODE_KEY) === 'dark' ? 'dark' : 'light';
 }
 
+function readSidebarCollapsed() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY) === '1';
+}
+
 export const useAdminShellStore = defineStore('admin-shell', () => {
   const tabs = ref<AdminRouteTab[]>([]);
   const activeTabPath = ref('');
   const themeMode = ref<AdminThemeMode>(readThemeMode());
+  const sidebarCollapsed = ref(readSidebarCollapsed());
 
   const isDarkMode = computed(() => themeMode.value === 'dark');
   const cachedViewNames = computed(() =>
@@ -67,6 +76,15 @@ export const useAdminShellStore = defineStore('admin-shell', () => {
 
   function toggleThemeMode() {
     applyThemeMode(isDarkMode.value ? 'light' : 'dark');
+  }
+
+  function setSidebarCollapsed(nextCollapsed: boolean) {
+    sidebarCollapsed.value = nextCollapsed;
+    localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, nextCollapsed ? '1' : '0');
+  }
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed(!sidebarCollapsed.value);
   }
 
   function syncRoute(route: RouteLocationNormalizedLoaded, homePath: string) {
@@ -166,9 +184,12 @@ export const useAdminShellStore = defineStore('admin-shell', () => {
     activeTabPath,
     themeMode,
     isDarkMode,
+    sidebarCollapsed,
     cachedViewNames,
     initializeThemeMode,
     toggleThemeMode,
+    setSidebarCollapsed,
+    toggleSidebarCollapsed,
     syncRoute,
     pruneTabs,
     closeTab,

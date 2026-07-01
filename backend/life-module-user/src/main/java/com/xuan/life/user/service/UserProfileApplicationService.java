@@ -46,6 +46,21 @@ public class UserProfileApplicationService {
         UserProfile profile = userProfileMapper.selectOne(
             new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
         );
+        return buildProfile(account, profile, countPublishedPosts(userId));
+    }
+
+    public UserProfileResponse getOwnProfile(Long userId) {
+        UserAccount account = userAccountMapper.selectById(userId);
+        if (account == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
+        UserProfile profile = userProfileMapper.selectOne(
+            new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
+        );
+        return buildProfile(account, profile, countAllPublishedPosts(userId));
+    }
+
+    private UserProfileResponse buildProfile(UserAccount account, UserProfile profile, long postCount) {
         return new UserProfileResponse(
             account.getId(),
             account.getUsername(),
@@ -53,9 +68,9 @@ public class UserProfileApplicationService {
             profile != null ? profile.getAvatarUrl() : "",
             profile != null ? profile.getBio() : "",
             account.getLastLoginRegion(),
-            countPublishedPosts(userId),
-            followApplicationService.countFollowing(userId),
-            followApplicationService.countFollowers(userId),
+            postCount,
+            followApplicationService.countFollowing(account.getId()),
+            followApplicationService.countFollowers(account.getId()),
             0L
         );
     }
@@ -72,21 +87,9 @@ public class UserProfileApplicationService {
             .stream()
             .collect(Collectors.toMap(UserProfile::getUserId, Function.identity()));
 
-        return accountMap.values().stream().map(account -> {
-            UserProfile profile = profileMap.get(account.getId());
-            return new UserProfileResponse(
-                account.getId(),
-                account.getUsername(),
-                profile != null ? profile.getNickname() : account.getUsername(),
-                profile != null ? profile.getAvatarUrl() : "",
-                profile != null ? profile.getBio() : "",
-                account.getLastLoginRegion(),
-                countPublishedPosts(account.getId()),
-                followApplicationService.countFollowing(account.getId()),
-                followApplicationService.countFollowers(account.getId()),
-                0L
-            );
-        }).collect(Collectors.toMap(UserProfileResponse::userId, Function.identity()));
+        return accountMap.values().stream()
+            .map(account -> buildProfile(account, profileMap.get(account.getId()), countPublishedPosts(account.getId())))
+            .collect(Collectors.toMap(UserProfileResponse::userId, Function.identity()));
     }
 
     public List<UserAccount> listAccounts(Collection<Long> userIds) {
@@ -108,6 +111,15 @@ public class UserProfileApplicationService {
         // 这里用 JdbcTemplate 直接做聚合统计，避免 user/content 模块互相依赖造成循环编译。
         Long count = jdbcTemplate.queryForObject(
             "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 'PUBLISHED' AND visibility = 'PUBLIC'",
+            Long.class,
+            userId
+        );
+        return count != null ? count : 0L;
+    }
+
+    private long countAllPublishedPosts(Long userId) {
+        Long count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 'PUBLISHED'",
             Long.class,
             userId
         );

@@ -1,93 +1,95 @@
 <template>
-  <t-card title="菜单管理">
-    <div class="page-actions">
-      <t-button theme="primary" @click="openCreateDialog(0)">新增顶级菜单</t-button>
+  <div class="admin-page">
+    <div class="admin-form-actions">
+      <n-button type="primary" @click="openCreateDialog(0)">新增一级菜单</n-button>
     </div>
 
-    <t-table row-key="id" :data="flatRows" :columns="columns" :loading="loading" bordered hover>
-      <template #menuName="{ row }">
-        <div class="menu-name-cell" :style="{ paddingLeft: `${row.level * 20}px` }">
-          <strong>{{ row.menuName }}</strong>
+    <n-card class="admin-card admin-table-card" :bordered="false" title="菜单结构">
+      <n-data-table
+        striped
+        :bordered="false"
+        :columns="columns"
+        :data="menuTree"
+        :loading="loading"
+        :row-key="rowKey"
+        children-key="children"
+      />
+    </n-card>
+
+    <n-modal
+      v-model:show="dialogVisible"
+      preset="card"
+      :title="editingMenuId ? '编辑菜单' : '新增菜单'"
+      style="width: 720px"
+      :bordered="false"
+    >
+      <div class="admin-filter-grid">
+        <n-form-item label="父级菜单">
+          <n-select v-model:value="form.parentId" :options="parentOptions" />
+        </n-form-item>
+        <n-form-item label="菜单类型">
+          <n-select v-model:value="form.menuType" :options="menuTypeOptions" />
+        </n-form-item>
+        <n-form-item label="菜单名称">
+          <n-input v-model:value="form.menuName" />
+        </n-form-item>
+        <n-form-item label="路由名称">
+          <n-input v-model:value="form.routeName" />
+        </n-form-item>
+        <n-form-item label="路由路径">
+          <n-input v-model:value="form.routePath" placeholder="/rbac/menus" />
+        </n-form-item>
+        <n-form-item label="页面组件">
+          <n-select v-model:value="form.viewKey" :disabled="form.menuType !== 'PAGE'" :options="viewKeyOptions" />
+        </n-form-item>
+        <n-form-item label="图标名称">
+          <n-input v-model:value="form.iconName" />
+        </n-form-item>
+        <n-form-item label="权限编码">
+          <n-input v-model:value="form.permissionCode" :disabled="form.menuType !== 'PAGE'" />
+        </n-form-item>
+        <n-form-item label="排序">
+          <n-input-number v-model:value="form.sortOrder" :min="0" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="显示状态">
+          <n-select v-model:value="form.visible" :options="visibleOptions" />
+        </n-form-item>
+        <n-form-item label="启用状态">
+          <n-select v-model:value="form.status" :options="statusOptions" />
+        </n-form-item>
+      </div>
+
+      <template #footer>
+        <div class="admin-form-actions">
+          <n-button secondary @click="dialogVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitForm">保存</n-button>
         </div>
       </template>
-      <template #menuType="{ row }">
-        <t-tag theme="primary" variant="light-outline">{{ row.menuType }}</t-tag>
-      </template>
-      <template #visible="{ row }">
-        <t-tag :theme="row.visible === 1 ? 'success' : 'warning'" variant="light-outline">
-          {{ row.visible === 1 ? '显示' : '隐藏' }}
-        </t-tag>
-      </template>
-      <template #status="{ row }">
-        <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light-outline">
-          {{ row.status === 1 ? '启用' : '停用' }}
-        </t-tag>
-      </template>
-      <template #operations="{ row }">
-        <t-space>
-          <t-button size="small" variant="outline" @click="openCreateDialog(row.id)">新增子菜单</t-button>
-          <t-button size="small" variant="outline" @click="openEditDialog(row)">编辑</t-button>
-          <t-button size="small" theme="danger" variant="outline" @click="handleDelete(row.id)">删除</t-button>
-        </t-space>
-      </template>
-    </t-table>
-  </t-card>
-
-  <t-dialog
-    v-model:visible="dialogVisible"
-    :header="editingMenuId ? '编辑菜单' : '新增菜单'"
-    width="640px"
-    @confirm="submitForm"
-  >
-    <t-form label-align="top">
-      <t-form-item label="父级菜单">
-        <t-select v-model="form.parentId" :options="parentOptions" />
-      </t-form-item>
-      <t-form-item label="菜单类型">
-        <t-select v-model="form.menuType" :options="menuTypeOptions" />
-      </t-form-item>
-      <t-form-item label="菜单名称">
-        <t-input v-model="form.menuName" />
-      </t-form-item>
-      <t-form-item label="路由名称">
-        <t-input v-model="form.routeName" />
-      </t-form-item>
-      <t-form-item label="路由路径">
-        <t-input v-model="form.routePath" placeholder="/rbac/menus" />
-      </t-form-item>
-      <t-form-item label="viewKey">
-        <t-select v-model="form.viewKey" :disabled="form.menuType !== 'PAGE'" :options="viewKeyOptions" />
-      </t-form-item>
-      <t-form-item label="iconName">
-        <t-input v-model="form.iconName" />
-      </t-form-item>
-      <t-form-item label="permissionCode">
-        <t-input v-model="form.permissionCode" :disabled="form.menuType !== 'PAGE'" />
-      </t-form-item>
-      <t-form-item label="排序">
-        <t-input-number v-model="form.sortOrder" theme="normal" />
-      </t-form-item>
-      <t-form-item label="显示状态">
-        <t-select v-model="form.visible" :options="switchOptions" />
-      </t-form-item>
-      <t-form-item label="启用状态">
-        <t-select v-model="form.status" :options="switchOptions" />
-      </t-form-item>
-    </t-form>
-  </t-dialog>
+    </n-modal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NFormItem,
+  NInput,
+  NInputNumber,
+  NModal,
+  NSelect,
+  type SelectOption,
+  type DataTableColumns,
+} from 'naive-ui';
+import StatusTag from '../../components/admin/StatusTag.vue';
 import { createMenu, deleteMenu, fetchMenuTree, updateMenu } from '../../services/api';
 import { useAdminPermissionStore } from '../../stores/permission';
 import type { AdminMenuNode, MenuFormModel } from '../../types/admin';
-
-interface FlatMenuRow extends AdminMenuNode {
-  level: number;
-}
+import { formatMenuTypeLabel } from '../../utils/adminLabels';
+import { confirmAction, message } from '../../utils/feedback';
 
 const loading = ref(false);
 const router = useRouter();
@@ -109,41 +111,95 @@ const form = reactive<MenuFormModel>({
   status: 1,
 });
 
-const columns = [
-  { colKey: 'menuName', title: '菜单名称' },
-  { colKey: 'menuType', title: '类型', width: 120 },
-  { colKey: 'routeName', title: '路由名称', width: 160 },
-  { colKey: 'routePath', title: '路由路径', width: 180 },
-  { colKey: 'permissionCode', title: '权限标识', width: 180 },
-  { colKey: 'sortOrder', title: '排序', width: 100 },
-  { colKey: 'visible', title: '显示', width: 100 },
-  { colKey: 'status', title: '状态', width: 100 },
-  { colKey: 'operations', title: '操作', width: 260 },
+const columns: DataTableColumns<AdminMenuNode> = [
+  {
+    key: 'menuName',
+    title: '菜单名称',
+    render: (row) => h('strong', row.menuName),
+  },
+  {
+    key: 'menuType',
+    title: '类型',
+    width: 120,
+    render: (row) => h(StatusTag, { label: formatMenuTypeLabel(row.menuType), tone: 'info' }),
+  },
+  { key: 'routeName', title: '路由名称', width: 160 },
+  { key: 'routePath', title: '路由路径', width: 180 },
+  { key: 'permissionCode', title: '权限标识', width: 180 },
+  { key: 'sortOrder', title: '排序', width: 90 },
+  {
+    key: 'visible',
+    title: '显示',
+    width: 100,
+    render: (row) =>
+      h(StatusTag, {
+        label: row.visible === 1 ? '显示' : '隐藏',
+        tone: row.visible === 1 ? 'success' : 'warning',
+      }),
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 100,
+    render: (row) =>
+      h(StatusTag, {
+        label: row.status === 1 ? '启用' : '停用',
+        tone: row.status === 1 ? 'success' : 'error',
+      }),
+  },
+  {
+    key: 'operations',
+    title: '操作',
+    width: 240,
+    render: (row) =>
+      h('div', { class: 'admin-action-group' }, [
+        h(
+          NButton,
+          { size: 'small', secondary: true, type: 'primary', onClick: () => openCreateDialog(row.id) },
+          { default: () => '新增子菜单' },
+        ),
+        h(
+          NButton,
+          { size: 'small', secondary: true, onClick: () => openEditDialog(row) },
+          { default: () => '编辑' },
+        ),
+        h(
+          NButton,
+          { size: 'small', tertiary: true, type: 'error', onClick: () => handleDelete(row.id) },
+          { default: () => '删除' },
+        ),
+      ]),
+  },
 ];
 
 const menuTypeOptions = [
-  { label: 'DIRECTORY', value: 'DIRECTORY' },
-  { label: 'PAGE', value: 'PAGE' },
+  { label: '目录', value: 'DIRECTORY' },
+  { label: '页面', value: 'PAGE' },
 ];
 
-const switchOptions = [
+const visibleOptions = [
+  { label: '显示', value: 1 },
+  { label: '隐藏', value: 0 },
+];
+
+const statusOptions = [
   { label: '启用', value: 1 },
   { label: '停用', value: 0 },
 ];
 
 const viewKeyOptions = [
-  { label: 'OverviewView', value: 'OverviewView' },
-  { label: 'UserListView', value: 'UserListView' },
-  { label: 'PostListView', value: 'PostListView' },
-  { label: 'MenuManageView', value: 'MenuManageView' },
-  { label: 'RoleManageView', value: 'RoleManageView' },
-  { label: 'AdminUserRoleView', value: 'AdminUserRoleView' },
+  { label: '首页概览', value: 'OverviewView' },
+  { label: '用户列表', value: 'UserListView' },
+  { label: '帖子列表', value: 'PostListView' },
+  { label: '广播消息', value: 'BroadcastManageView' },
+  { label: '菜单管理', value: 'MenuManageView' },
+  { label: '角色管理', value: 'RoleManageView' },
+  { label: '管理员角色分配', value: 'AdminUserRoleView' },
 ];
 
-const flatRows = computed(() => flattenMenus(menuTree.value));
-const parentOptions = computed(() => [
+const parentOptions = computed<SelectOption[]>(() => [
   { label: '顶级菜单', value: 0 },
-  ...flatRows.value
+  ...flattenMenus(menuTree.value)
     .filter((item) => item.menuType === 'DIRECTORY')
     .map((item) => ({
       label: `${'　'.repeat(item.level)}${item.menuName}`,
@@ -151,7 +207,11 @@ const parentOptions = computed(() => [
     })),
 ]);
 
-function flattenMenus(items: AdminMenuNode[], level = 0): FlatMenuRow[] {
+function rowKey(row: AdminMenuNode) {
+  return row.id;
+}
+
+function flattenMenus(items: AdminMenuNode[], level = 0): Array<AdminMenuNode & { level: number }> {
   return items.flatMap((item) => [
     { ...item, level },
     ...flattenMenus(item.children, level + 1),
@@ -210,48 +270,38 @@ function openEditDialog(row: AdminMenuNode) {
 
 async function submitForm() {
   if (!form.menuName.trim() || !form.routeName.trim() || !form.routePath.trim()) {
-    MessagePlugin.warning('请填写完整菜单信息');
+    message.warning('请填写完整菜单信息');
     return;
   }
   if (form.menuType === 'PAGE' && (!form.viewKey.trim() || !form.permissionCode.trim())) {
-    MessagePlugin.warning('页面菜单必须填写 viewKey 和 permissionCode');
+    message.warning('页面菜单必须填写页面组件和权限编码');
     return;
   }
   if (editingMenuId.value) {
     await updateMenu(editingMenuId.value, { ...form });
-    MessagePlugin.success('菜单更新成功');
+    message.success('菜单更新成功');
   } else {
     await createMenu({ ...form });
-    MessagePlugin.success('菜单创建成功');
+    message.success('菜单创建成功');
   }
   dialogVisible.value = false;
   await permissionStore.bootstrap(router);
-  loadMenus();
+  await loadMenus();
 }
 
 async function handleDelete(menuId: number) {
-  if (!window.confirm('删除后不可恢复，且必须先清理子菜单和角色绑定，确认继续吗？')) {
+  const confirmed = await confirmAction({
+    title: '删除菜单',
+    content: '删除后不可恢复，且需要提前清理子菜单和角色绑定，确认继续吗？',
+  });
+  if (!confirmed) {
     return;
   }
   await deleteMenu(menuId);
-  MessagePlugin.success('菜单删除成功');
+  message.success('菜单删除成功');
   await permissionStore.bootstrap(router);
-  loadMenus();
+  await loadMenus();
 }
 
 onMounted(loadMenus);
 </script>
-
-<style scoped>
-.page-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
-.menu-name-cell {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-}
-</style>

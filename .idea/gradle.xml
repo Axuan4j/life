@@ -6,6 +6,7 @@
       <GradleProjectSettings>
         <option name="distributionType" value="LOCAL" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleJvm" value="temurin-17" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
@@ -13,14 +14,15 @@
             <option value="$PROJECT_DIR$/backend/life-boot" />
             <option value="$PROJECT_DIR$/backend/life-common" />
             <option value="$PROJECT_DIR$/backend/life-infra" />
+            <option value="$PROJECT_DIR$/backend/life-module-admin" />
             <option value="$PROJECT_DIR$/backend/life-module-content" />
             <option value="$PROJECT_DIR$/backend/life-module-feed" />
+            <option value="$PROJECT_DIR$/backend/life-module-message" />
             <option value="$PROJECT_DIR$/backend/life-module-social" />
             <option value="$PROJECT_DIR$/backend/life-module-user" />
             <option value="$PROJECT_DIR$/backend/life-security" />
           </set>
         </option>
-        <option name="myGradleHome" value="E:\app\gradle-9.6.0" />
       </GradleProjectSettings>
     </option>
   </component>

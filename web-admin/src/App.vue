@@ -1,87 +1,87 @@
 <template>
-  <router-view />
+  <n-config-provider
+    :theme="naiveTheme"
+    :theme-overrides="themeOverrides"
+    :locale="zhCN"
+    :date-locale="dateZhCN"
+  >
+    <n-loading-bar-provider>
+      <n-dialog-provider>
+        <n-notification-provider>
+          <n-message-provider placement="top-right">
+            <n-global-style />
+            <router-view />
+          </n-message-provider>
+        </n-notification-provider>
+      </n-dialog-provider>
+    </n-loading-bar-provider>
+  </n-config-provider>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import {
+  NConfigProvider,
+  NDialogProvider,
+  NGlobalStyle,
+  NLoadingBarProvider,
+  NMessageProvider,
+  NNotificationProvider,
+  darkTheme,
+  dateZhCN,
+  zhCN,
+} from 'naive-ui';
 import { useAdminShellStore } from './stores/shell';
 
 const shellStore = useAdminShellStore();
 
 shellStore.initializeThemeMode();
+
+const naiveTheme = computed(() => (shellStore.isDarkMode ? darkTheme : null));
+
+const themeOverrides = computed(() => ({
+  common: {
+    primaryColor: shellStore.isDarkMode ? '#7aa2ff' : '#4f7cff',
+    primaryColorHover: shellStore.isDarkMode ? '#8ab0ff' : '#5f89ff',
+    primaryColorPressed: shellStore.isDarkMode ? '#6a95f3' : '#456ee8',
+    primaryColorSuppl: shellStore.isDarkMode ? '#7aa2ff' : '#4f7cff',
+    borderRadius: '14px',
+    borderRadiusSmall: '12px',
+    cardColor: shellStore.isDarkMode ? 'rgba(18, 25, 38, 0.88)' : 'rgba(255, 255, 255, 0.92)',
+    modalColor: shellStore.isDarkMode ? '#111827' : '#ffffff',
+    popoverColor: shellStore.isDarkMode ? '#111827' : '#ffffff',
+    bodyColor: 'transparent',
+  },
+  Card: {
+    borderRadius: '20px',
+    colorEmbedded: shellStore.isDarkMode ? 'rgba(18, 25, 38, 0.92)' : '#ffffff',
+  },
+  Input: {
+    borderRadius: '14px',
+  },
+  Select: {
+    peers: {
+      InternalSelection: {
+        borderRadius: '14px',
+      },
+    },
+  },
+  Button: {
+    borderRadiusMedium: '14px',
+    borderRadiusSmall: '12px',
+  },
+  Tabs: {
+    tabBorderRadiusCard: '14px',
+  },
+  DataTable: {
+    thColor: shellStore.isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(248, 250, 252, 0.9)',
+    tdColor: 'transparent',
+    thColorHover: shellStore.isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(245, 247, 250, 0.96)',
+    tdColorHover: shellStore.isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(79, 124, 255, 0.02)',
+  },
+  Menu: {
+    itemBorderRadius: '14px',
+    itemHeight: '44px',
+  },
+}));
 </script>
-
-<style>
-:root {
-  --life-admin-accent: #e86d4f;
-  --life-admin-accent-soft: rgba(232, 109, 79, 0.12);
-  --life-admin-border: rgba(25, 35, 52, 0.08);
-  --life-admin-shadow: 0 18px 42px rgba(21, 35, 58, 0.08);
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
-}
-
-body {
-  margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(255, 199, 183, 0.68) 0%, transparent 30%),
-    radial-gradient(circle at top right, rgba(198, 225, 255, 0.6) 0%, transparent 28%),
-    linear-gradient(180deg, #fffaf7 0%, #f5f7fb 52%, #eef3f8 100%);
-  color: var(--td-text-color-primary);
-}
-
-html[theme-mode='dark'] body {
-  background:
-    radial-gradient(circle at top left, rgba(232, 109, 79, 0.18) 0%, transparent 28%),
-    radial-gradient(circle at top right, rgba(89, 159, 255, 0.18) 0%, transparent 26%),
-    linear-gradient(180deg, #131821 0%, #10151d 58%, #0d1219 100%);
-}
-
-.t-card {
-  border: 1px solid var(--life-admin-border);
-  border-radius: 24px;
-  box-shadow: var(--life-admin-shadow);
-  overflow: hidden;
-}
-
-.t-card__header {
-  padding: 20px 22px 12px;
-}
-
-.t-card__body {
-  padding: 20px 22px 22px;
-}
-
-.t-table {
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.t-table thead tr {
-  background: rgba(242, 246, 251, 0.92);
-}
-
-html[theme-mode='dark'] .t-table thead tr {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.t-input,
-.t-select,
-.t-textarea,
-.t-pagination {
-  border-radius: 14px;
-}
-
-.t-button.t-button--theme-primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, #ed7b59 0%, #d85b3c 100%);
-  box-shadow: 0 10px 24px rgba(216, 91, 60, 0.2);
-}
-
-.t-button.t-button--theme-primary:not(.t-is-disabled):hover {
-  background: linear-gradient(135deg, #f08a6b 0%, #db6345 100%);
-}
-</style>

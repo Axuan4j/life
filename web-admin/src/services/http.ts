@@ -1,7 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { MessagePlugin } from 'tdesign-vue-next';
 import { useAdminAuthStore } from '../stores/auth';
 import type { ApiResponse } from '../types/http';
+import { message as feedbackMessage } from '../utils/feedback';
 
 interface RefreshTokenResponse {
   accessToken: string;
@@ -61,7 +61,7 @@ function handleUnauthorized(message: string) {
 
   if (!isHandlingUnauthorized) {
     isHandlingUnauthorized = true;
-    MessagePlugin.error(message || '登录已失效，请重新登录');
+    feedbackMessage.error(message || '登录已失效，请重新登录');
 
     if (window.location.pathname !== '/login') {
       window.location.replace(buildLoginRedirectPath());
@@ -120,7 +120,7 @@ http.interceptors.response.use(
   (response) => {
     const envelope = response.data as ApiResponse<unknown> | undefined;
     if (envelope && typeof envelope.code === 'number' && envelope.code !== 0) {
-      MessagePlugin.error(envelope.message || '请求失败');
+      feedbackMessage.error(envelope.message || '请求失败');
       return Promise.reject(new Error(envelope.message || '请求失败'));
     }
     return response;
@@ -150,14 +150,14 @@ http.interceptors.response.use(
     }
 
     if (status === 403) {
-      MessagePlugin.error(message);
+      feedbackMessage.error(message);
       if (authStore.accessToken && window.location.pathname !== '/403') {
         window.location.replace('/403');
       }
       return Promise.reject(error);
     }
 
-    MessagePlugin.error(message);
+    feedbackMessage.error(message);
     return Promise.reject(error);
   },
 );

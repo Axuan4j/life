@@ -1,51 +1,67 @@
 <template>
-  <t-card title="用户列表">
-    <div class="query-panel">
-      <t-form class="query-form" layout="inline">
-        <t-form-item label="关键词">
-          <t-input v-model="query.keyword" placeholder="用户名 / 昵称" clearable />
-        </t-form-item>
-        <t-form-item label="平台角色">
-          <t-select v-model="query.roleCode" clearable :options="roleOptions" />
-        </t-form-item>
-        <t-form-item label="状态">
-          <t-select v-model="query.status" clearable :options="statusOptions" />
-        </t-form-item>
-        <t-space>
-          <t-button theme="primary" @click="handleSearch">查询</t-button>
-          <t-button variant="outline" @click="resetSearch">重置</t-button>
-        </t-space>
-      </t-form>
-    </div>
+  <div class="admin-page">
+    <n-card class="admin-card compact-card" :bordered="false" title="筛选条件">
+      <div class="admin-filter-grid">
+        <n-form-item label="关键词">
+          <n-input v-model:value="query.keyword" clearable placeholder="用户名 / 昵称" />
+        </n-form-item>
+        <n-form-item label="平台角色">
+          <n-select v-model:value="query.roleCode" clearable :options="roleOptions" placeholder="全部角色" />
+        </n-form-item>
+        <n-form-item label="状态">
+          <n-select v-model:value="query.status" clearable :options="statusOptions" placeholder="全部状态" />
+        </n-form-item>
+      </div>
 
-    <t-table row-key="userId" :data="rows" :columns="columns" :loading="loading" hover>
-      <template #roleCode="{ row }">
-        <t-tag theme="primary" variant="light-outline">{{ row.roleCode }}</t-tag>
-      </template>
-      <template #status="{ row }">
-        <t-tag :theme="row.status === 1 ? 'success' : 'danger'" variant="light-outline">
-          {{ row.status === 1 ? '启用' : '禁用' }}
-        </t-tag>
-      </template>
-      <template #createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-    </t-table>
+      <div class="admin-form-actions">
+        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button secondary @click="resetSearch">重置</n-button>
+      </div>
+    </n-card>
 
-    <div class="table-footer">
-      <t-pagination
-        :current="query.pageNo"
-        :page-size="query.pageSize"
-        :total="total"
-        show-page-size
-        @change="handlePageChange"
+    <n-card class="admin-card admin-table-card" :bordered="false" title="用户列表">
+      <n-data-table
+        remote
+        striped
+        :bordered="false"
+        :columns="columns"
+        :data="rows"
+        :loading="loading"
+        :row-key="rowKey"
       />
-    </div>
-  </t-card>
+
+      <div class="admin-table-footer">
+        <n-pagination
+          :page="query.pageNo"
+          :page-size="query.pageSize"
+          :item-count="total"
+          show-size-picker
+          :page-sizes="[10, 20, 50]"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </n-card>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { h, onMounted, reactive, ref } from 'vue';
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NFormItem,
+  NInput,
+  NPagination,
+  NSelect,
+  type DataTableColumns,
+} from 'naive-ui';
+import StatusTag from '../../components/admin/StatusTag.vue';
 import { fetchUsers } from '../../services/api';
 import type { AdminUserListItem } from '../../types/admin';
+import { formatPlatformRoleLabel } from '../../utils/adminLabels';
+import { formatDateTime } from '../../utils/format';
 
 const loading = ref(false);
 const total = ref(0);
@@ -54,32 +70,45 @@ const query = reactive({
   pageNo: 1,
   pageSize: 20,
   keyword: '',
-  roleCode: '',
-  status: '' as number | '',
+  roleCode: null as string | null,
+  status: null as number | null,
 });
 
-const roleOptions = [
-  { label: '普通用户', value: 'USER' },
-];
-
+const roleOptions = [{ label: '普通用户', value: 'USER' }];
 const statusOptions = [
   { label: '启用', value: 1 },
   { label: '禁用', value: 0 },
 ];
 
-const columns = [
-  { colKey: 'username', title: '用户名' },
-  { colKey: 'nickname', title: '昵称' },
-  { colKey: 'roleCode', title: '平台角色' },
-  { colKey: 'status', title: '状态' },
-  { colKey: 'postCount', title: '帖子数' },
-  { colKey: 'followingCount', title: '关注数' },
-  { colKey: 'followerCount', title: '粉丝数' },
-  { colKey: 'createdAt', title: '注册时间' },
+const columns: DataTableColumns<AdminUserListItem> = [
+  { key: 'username', title: '用户名' },
+  { key: 'nickname', title: '昵称' },
+  {
+    key: 'roleCode',
+    title: '平台角色',
+    render: (row) => h(StatusTag, { label: formatPlatformRoleLabel(row.roleCode), tone: 'info' }),
+  },
+  {
+    key: 'status',
+    title: '状态',
+    render: (row) =>
+      h(StatusTag, {
+        label: row.status === 1 ? '启用' : '禁用',
+        tone: row.status === 1 ? 'success' : 'error',
+      }),
+  },
+  { key: 'postCount', title: '帖子数' },
+  { key: 'followingCount', title: '关注数' },
+  { key: 'followerCount', title: '粉丝数' },
+  {
+    key: 'createdAt',
+    title: '注册时间',
+    render: (row) => formatDateTime(row.createdAt),
+  },
 ];
 
-function formatDateTime(value: string) {
-  return value ? value.replace('T', ' ') : '-';
+function rowKey(row: AdminUserListItem) {
+  return row.userId;
 }
 
 async function loadUsers() {
@@ -90,7 +119,7 @@ async function loadUsers() {
       pageSize: query.pageSize,
       keyword: query.keyword || undefined,
       roleCode: query.roleCode || undefined,
-      status: query.status,
+      status: query.status ?? '',
     });
     rows.value = response.items;
     total.value = response.total;
@@ -106,36 +135,22 @@ function handleSearch() {
 
 function resetSearch() {
   query.keyword = '';
-  query.roleCode = '';
-  query.status = '';
+  query.roleCode = null;
+  query.status = null;
   query.pageNo = 1;
   loadUsers();
 }
 
-function handlePageChange(pageInfo: { current: number; pageSize: number }) {
-  query.pageNo = pageInfo.current;
-  query.pageSize = pageInfo.pageSize;
+function handlePageChange(page: number) {
+  query.pageNo = page;
+  loadUsers();
+}
+
+function handlePageSizeChange(pageSize: number) {
+  query.pageNo = 1;
+  query.pageSize = pageSize;
   loadUsers();
 }
 
 onMounted(loadUsers);
 </script>
-
-<style scoped>
-.query-panel {
-  margin-bottom: 16px;
-  padding: 14px 16px 0;
-  border-radius: 20px;
-  background: rgba(245, 248, 252, 0.88);
-}
-
-.query-form {
-  gap: 8px 0;
-}
-
-.table-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-</style>

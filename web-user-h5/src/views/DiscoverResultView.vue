@@ -49,7 +49,7 @@ import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showSuccessToast } from 'vant';
 import FeedPostCard from '../components/FeedPostCard.vue';
-import { postApi, type DiscoverResultSort, type DiscoverResultType } from '../services/api';
+import { postApi, type DiscoverResultSort, type DiscoverResultType, type EntityId } from '../services/api';
 import { useDiscoverStore } from '../stores/discover';
 
 const route = useRoute();
@@ -131,20 +131,20 @@ async function submitKeyword() {
   });
 }
 
-async function goDetail(postId: number) {
+async function goDetail(postId: EntityId) {
   await router.push(`/posts/${postId}`);
 }
 
-async function likePost(postId: number) {
+async function likePost(postId: EntityId) {
   const interaction = await postApi.toggleLike(postId);
   discoverStore.updateResultPostCounters(postId, interaction);
 }
 
-async function commentPost(postId: number) {
+async function commentPost(postId: EntityId) {
   await router.push(`/posts/${postId}?focus=comment`);
 }
 
-async function repostPost(postId: number) {
+async function repostPost(postId: EntityId) {
   const interaction = await postApi.repost(postId);
   discoverStore.updateResultPostCounters(postId, interaction);
   showSuccessToast('转发成功');

@@ -4,8 +4,8 @@ export interface MockFeedImage {
 }
 
 export interface MockFeedPost {
-  postId: number;
-  authorId: number;
+  postId: string;
+  authorId: string;
   authorName: string;
   authorBadge: string;
   sourceType: 'FOLLOWING' | 'RECOMMENDED';
@@ -20,7 +20,7 @@ export interface MockFeedPost {
 }
 
 export interface MockProfile {
-  userId: number;
+  userId: string;
   username: string;
   nickname: string;
   bio: string;
@@ -33,8 +33,8 @@ export interface MockProfile {
 
 const initialFeed: MockFeedPost[] = [
   {
-    postId: 1001,
-    authorId: 2001,
+    postId: '1001',
+    authorId: '2001',
     authorName: '小满今天也很开心',
     authorBadge: '旅行达人',
     sourceType: 'FOLLOWING',
@@ -52,8 +52,8 @@ const initialFeed: MockFeedPost[] = [
     ],
   },
   {
-    postId: 1002,
-    authorId: 2002,
+    postId: '1002',
+    authorId: '2002',
     authorName: '一颗柠檬',
     authorBadge: '美食爱好者',
     sourceType: 'RECOMMENDED',
@@ -73,7 +73,7 @@ const initialFeed: MockFeedPost[] = [
 ]
 
 export const mockProfile: MockProfile = {
-  userId: 10001,
+  userId: '10001',
   username: 'life_user',
   nickname: '微风与海',
   bio: '热爱生活，记录美好瞬间',
@@ -93,7 +93,7 @@ export function createInitialFeed(): MockFeedPost[] {
 
 export function createMockPost(contentText: string): MockFeedPost {
   return {
-    postId: Date.now(),
+    postId: `${Date.now()}`,
     authorId: mockProfile.userId,
     authorName: mockProfile.nickname,
     authorBadge: '新的分享',

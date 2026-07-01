@@ -12,6 +12,25 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+export interface CaptchaClickPoint {
+  x: number;
+  y: number;
+}
+
+export interface LoginCaptchaChallenge {
+  captchaId: string;
+  imageData: string;
+  targets: string[];
+  width: number;
+  height: number;
+  expiresInSeconds: number;
+}
+
+export interface LoginCaptchaVerifyResult {
+  tempKey: string;
+  expiresInSeconds: number;
+}
+
 export interface CursorPageResponse<T> {
   items: T[];
   nextCursor: string;
@@ -27,6 +46,7 @@ export interface PageResponse<T> {
 
 export type DiscoverResultType = 'TOPIC' | 'KEYWORD';
 export type DiscoverResultSort = 'COMPOSITE' | 'LATEST';
+export type EntityId = string;
 
 export interface PostMediaResponse {
   mediaType: string;
@@ -35,12 +55,13 @@ export interface PostMediaResponse {
 }
 
 export interface PostCardResponse {
-  postId: number;
-  authorId: number;
+  postId: EntityId;
+  authorId: EntityId;
   authorUsername: string;
   authorNickname: string;
   authorAvatarUrl: string | null;
   ipRegion: string;
+  visibility?: 'PUBLIC' | 'PRIVATE' | string;
   contentText: string;
   publishedAt: string;
   likeCount: number;
@@ -50,13 +71,13 @@ export interface PostCardResponse {
 }
 
 export interface PostCommentReplyResponse {
-  commentId: number;
-  userId: number;
+  commentId: EntityId;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
   ipRegion: string;
-  replyToUserId: number | null;
+  replyToUserId: EntityId | null;
   replyToUsername: string;
   replyToNickname: string;
   contentText: string;
@@ -64,8 +85,8 @@ export interface PostCommentReplyResponse {
 }
 
 export interface PostCommentResponse {
-  commentId: number;
-  userId: number;
+  commentId: EntityId;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
@@ -76,7 +97,7 @@ export interface PostCommentResponse {
 }
 
 export interface PostLikedUserResponse {
-  userId: number;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
@@ -92,8 +113,8 @@ export interface PostInteractionResponse {
 }
 
 export interface PostRepostItemResponse {
-  repostId: number;
-  userId: number;
+  repostId: EntityId;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
@@ -113,7 +134,7 @@ export interface FeedItemResponse {
 }
 
 export interface UserProfileResponse {
-  userId: number;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
@@ -126,7 +147,7 @@ export interface UserProfileResponse {
 }
 
 export interface FollowStatusResponse {
-  targetUserId: number;
+  targetUserId: EntityId;
   following: boolean;
 }
 
@@ -147,7 +168,7 @@ export interface DiscoverTopicSquareItemResponse {
 }
 
 export interface DiscoverRecommendedAuthorItemResponse {
-  userId: number;
+  userId: EntityId;
   username: string;
   nickname: string;
   avatarUrl: string | null;
@@ -179,17 +200,17 @@ export interface DiscoverResultPageResponse {
 }
 
 export interface UserNotificationResponse {
-  notificationId: number;
+  notificationId: EntityId;
   notificationType: 'LIKE' | 'COMMENT' | 'REPOST' | 'BROADCAST';
-  senderUserId: number | null;
+  senderUserId: EntityId | null;
   senderName: string;
   senderAvatarUrl: string | null;
   title: string;
   contentText: string;
   read: boolean;
   createdAt: string;
-  postId: number | null;
-  commentId: number | null;
+  postId: EntityId | null;
+  commentId: EntityId | null;
 }
 
 export interface UnreadCountResponse {
@@ -204,6 +225,7 @@ export interface NotificationStreamEventResponse {
 
 export interface CreatePostRequest {
   contentText: string;
+  visibility?: 'PUBLIC' | 'PRIVATE';
   medias: Array<{
     mediaType: string;
     mediaUrl: string;
@@ -216,7 +238,17 @@ function unwrapResponse<T>(response: { data: ApiResponse<T> }) {
 }
 
 export const authApi = {
-  async login(payload: { username: string; password: string }) {
+  async fetchLoginCaptcha() {
+    return unwrapResponse(await http.get<ApiResponse<LoginCaptchaChallenge>>('/api/auth/captcha'));
+  },
+  async verifyLoginCaptcha(payload: { captchaId: string; captchaPoints: CaptchaClickPoint[] }) {
+    return unwrapResponse(await http.post<ApiResponse<LoginCaptchaVerifyResult>>('/api/auth/captcha/verify', payload));
+  },
+  async login(payload: {
+    username: string;
+    password: string;
+    tempKey: string;
+  }) {
     return unwrapResponse(await http.post<ApiResponse<TokenPair>>('/api/auth/login', payload));
   },
   async register(payload: { username: string; password: string; nickname?: string }) {
@@ -234,7 +266,7 @@ export const userApi = {
   async getMe() {
     return unwrapResponse(await http.get<ApiResponse<UserProfileResponse>>('/api/users/me'));
   },
-  async getProfile(userId: number) {
+  async getProfile(userId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<UserProfileResponse>>(`/api/users/${userId}/profile`));
   },
 };
@@ -243,31 +275,31 @@ export const postApi = {
   async create(payload: CreatePostRequest) {
     return unwrapResponse(await http.post<ApiResponse<PostCardResponse>>('/api/posts', payload));
   },
-  async getDetail(postId: number) {
+  async getDetail(postId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<PostDetailResponse>>(`/api/posts/${postId}`));
   },
-  async getComments(postId: number) {
+  async getComments(postId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<PostCommentResponse[]>>(`/api/posts/${postId}/comments`));
   },
-  async getReposts(postId: number) {
+  async getReposts(postId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<PostRepostItemResponse[]>>(`/api/posts/${postId}/reposts`));
   },
   async createComment(
-    postId: number,
-    payload: { contentText: string; parentCommentId?: number | null; replyToUserId?: number | null },
+    postId: EntityId,
+    payload: { contentText: string; parentCommentId?: EntityId | null; replyToUserId?: EntityId | null },
   ) {
     return unwrapResponse(await http.post<ApiResponse<null>>(`/api/posts/${postId}/comments`, payload));
   },
-  async deleteComment(postId: number, commentId: number) {
+  async deleteComment(postId: EntityId, commentId: EntityId) {
     return unwrapResponse(await http.delete<ApiResponse<null>>(`/api/posts/${postId}/comments/${commentId}`));
   },
-  async toggleLike(postId: number) {
+  async toggleLike(postId: EntityId) {
     return unwrapResponse(await http.post<ApiResponse<PostInteractionResponse>>(`/api/posts/${postId}/likes/toggle`));
   },
-  async repost(postId: number) {
+  async repost(postId: EntityId) {
     return unwrapResponse(await http.post<ApiResponse<PostInteractionResponse>>(`/api/posts/${postId}/reposts`));
   },
-  async listByUser(userId: number, pageNo = 1, pageSize = 20) {
+  async listByUser(userId: EntityId, pageNo = 1, pageSize = 20) {
     return unwrapResponse(
       await http.get<ApiResponse<PostCardResponse[]>>(`/api/posts/users/${userId}`, {
         params: { pageNo, pageSize },
@@ -277,13 +309,13 @@ export const postApi = {
 };
 
 export const followApi = {
-  async follow(targetUserId: number) {
+  async follow(targetUserId: EntityId) {
     return unwrapResponse(await http.post<ApiResponse<null>>(`/api/follows/${targetUserId}`));
   },
-  async unfollow(targetUserId: number) {
+  async unfollow(targetUserId: EntityId) {
     return unwrapResponse(await http.delete<ApiResponse<null>>(`/api/follows/${targetUserId}`));
   },
-  async getStatus(targetUserId: number) {
+  async getStatus(targetUserId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<FollowStatusResponse>>(`/api/follows/status/${targetUserId}`));
   },
   async getMyFollowingProfiles() {
@@ -339,7 +371,7 @@ export const notificationApi = {
   async getUnreadCount() {
     return unwrapResponse(await http.get<ApiResponse<UnreadCountResponse>>('/api/notifications/unread-count'));
   },
-  async markRead(notificationId: number) {
+  async markRead(notificationId: EntityId) {
     return unwrapResponse(await http.patch<ApiResponse<null>>(`/api/notifications/${notificationId}/read`));
   },
   async markAllRead() {
