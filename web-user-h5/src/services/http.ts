@@ -11,7 +11,8 @@ const ANONYMOUS_AUTH_PATHS = [
 ];
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+  // Default to same-origin so nginx or the Vite dev proxy can decide where /api goes.
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
   timeout: 10000,
 });
 

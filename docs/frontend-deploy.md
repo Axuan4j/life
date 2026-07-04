@@ -17,7 +17,8 @@
 ## 固定约定
 - C 端端口：`<WEB_H5_PORT>`
 - 管理端端口：`<WEB_ADMIN_PORT>`
-- 后端反代：`127.0.0.1:<BACKEND_PORT>`
+- 用户 H5 后端反代：`127.0.0.1:18080`
+- 管理端后端反代：`127.0.0.1:18081`
 - C 端目录：`/opt/life/web-user-h5`
 - 管理端目录：`/opt/life/web-admin`
 
@@ -28,19 +29,23 @@ bash scripts/bootstrap-web-server.sh --host <SERVER_IP> --user <SSH_USER> --port
 
 ## 发布 C 端
 ```bash
-bash scripts/release-web-user-h5.sh --host <SERVER_IP> --user <SSH_USER> --port <SSH_PORT> --public-origin http://<SERVER_IP>:<WEB_H5_PORT>
+bash scripts/release-web-user-h5.sh --host <SERVER_IP> --user <SSH_USER> --port <SSH_PORT>
 ```
 
 ## 发布管理端
 ```bash
-bash scripts/release-web-admin.sh --host <SERVER_IP> --user <SSH_USER> --port <SSH_PORT> --public-origin http://<SERVER_IP>:<WEB_ADMIN_PORT>
+bash scripts/release-web-admin.sh --host <SERVER_IP> --user <SSH_USER> --port <SSH_PORT>
 ```
 
 ## 说明
-- 两个脚本都会在构建时注入站点自己的公网地址作为 `VITE_API_BASE_URL`
-- C 端默认构建成走 `http://<SERVER_IP>:<WEB_H5_PORT>/api/...`
-- 管理端默认构建成走 `http://<SERVER_IP>:<WEB_ADMIN_PORT>/api/...`
-- `nginx` 负责把 `/api` 统一反代到本地后端 `127.0.0.1:<BACKEND_PORT>`
+- 用户 H5 默认走站点同源 `/api/...`
+- 只有确实要把 H5 API 指向其他地址时，才需要传 `--api-base-url`
+- 管理端默认走同源 `/api/...`，不再要求按访问地址重新打包
+- C 端默认构建成走当前站点自己的 `/api/...`
+- 管理端的 `/api` 由站点自己的 `nginx` 反代到 `127.0.0.1:18081`
+- 如果确实需要把管理端 API 指到别的地址，发布时可额外传 `--api-base-url http://<TARGET_HOST>:<TARGET_PORT>`
+- `nginx` 会把用户 H5 的 `/api` 反代到 `127.0.0.1:18080`
+- `nginx` 会把管理端的 `/api` 反代到 `127.0.0.1:18081`
 - C 端 `notifications/stream` 单独关闭了代理缓冲，避免 SSE 被缓存
 - C 端登录已经改成“点选验证码 -> `tempKey` -> 登录”的两段式流程，部署验证时建议直接在浏览器里走一次登录链路
 

@@ -65,8 +65,11 @@ scp -P "${DEPLOY_PORT}" \
   "${ROOT_DIR}/ops/deploy/deploy-life.sh" \
   "${ROOT_DIR}/ops/deploy/rollback-life.sh" \
   "${ROOT_DIR}/ops/deploy/life-app.env.example" \
+  "${ROOT_DIR}/ops/deploy/life-admin-app.env.example" \
   "${ROOT_DIR}/ops/deploy/application-prod.yml.example" \
+  "${ROOT_DIR}/ops/deploy/application-admin-prod.yml.example" \
   "${ROOT_DIR}/ops/systemd/life-app.service" \
+  "${ROOT_DIR}/ops/systemd/life-admin-app.service" \
   "${ssh_target}:${remote_tmp}/"
 
 echo "==> Installing deployment assets on the server"
@@ -113,40 +116,70 @@ install -d -o root -g root -m 755 /opt/life/bin
 install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life/releases
 install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life/uploads
 install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life/logs
+install -d -o root -g root -m 755 /opt/life-admin
+install -d -o root -g root -m 755 /opt/life-admin/bin
+install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life-admin/releases
+install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life-admin/uploads
+install -d -o "${service_user}" -g "${service_group}" -m 755 /opt/life-admin/logs
 install -d -o root -g "${service_group}" -m 750 /etc/life
 
 install -o root -g root -m 755 "${REMOTE_TMP}/deploy-life.sh" /opt/life/bin/deploy-life.sh
 install -o root -g root -m 755 "${REMOTE_TMP}/rollback-life.sh" /opt/life/bin/rollback-life.sh
+install -o root -g root -m 755 "${REMOTE_TMP}/deploy-life.sh" /opt/life-admin/bin/deploy-life.sh
+install -o root -g root -m 755 "${REMOTE_TMP}/rollback-life.sh" /opt/life-admin/bin/rollback-life.sh
 install -o root -g root -m 644 "${REMOTE_TMP}/life-app.service" /etc/systemd/system/life-app.service
+install -o root -g root -m 644 "${REMOTE_TMP}/life-admin-app.service" /etc/systemd/system/life-admin-app.service
 install -o root -g root -m 644 "${REMOTE_TMP}/life-app.env.example" /etc/life/life-app.env.example
+install -o root -g root -m 644 "${REMOTE_TMP}/life-admin-app.env.example" /etc/life/life-admin-app.env.example
 install -o root -g root -m 644 "${REMOTE_TMP}/application-prod.yml.example" /etc/life/application-prod.yml.example
+install -o root -g root -m 644 "${REMOTE_TMP}/application-admin-prod.yml.example" /etc/life/application-admin-prod.yml.example
 
 if [[ ! -f /etc/life/life-app.env ]]; then
   install -o root -g "${service_group}" -m 640 "${REMOTE_TMP}/life-app.env.example" /etc/life/life-app.env
+fi
+
+if [[ ! -f /etc/life/life-admin-app.env ]]; then
+  install -o root -g "${service_group}" -m 640 "${REMOTE_TMP}/life-admin-app.env.example" /etc/life/life-admin-app.env
 fi
 
 if [[ ! -f /etc/life/application-prod.yml ]]; then
   install -o root -g "${service_group}" -m 640 "${REMOTE_TMP}/application-prod.yml.example" /etc/life/application-prod.yml
 fi
 
-if grep -q '^LIFE_LOG_PATH=\./logs$' /etc/life/life-app.env; then
-  sed -i 's#^LIFE_LOG_PATH=\./logs$#LIFE_LOG_PATH=/opt/life/logs#' /etc/life/life-app.env
+if [[ ! -f /etc/life/application-admin-prod.yml ]]; then
+  install -o root -g "${service_group}" -m 640 "${REMOTE_TMP}/application-admin-prod.yml.example" /etc/life/application-admin-prod.yml
 fi
 
-if ! grep -q '^LIFE_LOG_PATH=' /etc/life/life-app.env; then
-  printf '\nLIFE_LOG_PATH=/opt/life/logs\n' >> /etc/life/life-app.env
-fi
+ensure_env_log_path() {
+  local env_file="$1"
+  local log_path="$2"
+  if grep -q '^LIFE_LOG_PATH=\./logs$' "${env_file}"; then
+    sed -i "s#^LIFE_LOG_PATH=\./logs\$#LIFE_LOG_PATH=${log_path}#" "${env_file}"
+  fi
+  if ! grep -q '^LIFE_LOG_PATH=' "${env_file}"; then
+    printf '\nLIFE_LOG_PATH=%s\n' "${log_path}" >> "${env_file}"
+  fi
+  chmod 640 "${env_file}"
+  chown root:"${service_group}" "${env_file}"
+}
 
-chmod 640 /etc/life/life-app.env
-chown root:"${service_group}" /etc/life/life-app.env
-chmod 640 /etc/life/application-prod.yml
-chown root:"${service_group}" /etc/life/application-prod.yml
+ensure_config_permissions() {
+  local config_file="$1"
+  chmod 640 "${config_file}"
+  chown root:"${service_group}" "${config_file}"
+}
+
+ensure_env_log_path /etc/life/life-app.env /opt/life/logs
+ensure_env_log_path /etc/life/life-admin-app.env /opt/life-admin/logs
+ensure_config_permissions /etc/life/application-prod.yml
+ensure_config_permissions /etc/life/application-admin-prod.yml
 
 systemctl daemon-reload
 systemctl enable life-app
+systemctl enable life-admin-app
 
 rm -rf "${REMOTE_TMP}"
 REMOTE
 
 echo "==> Bootstrap finished"
-echo "Edit /etc/life/life-app.env on the server before the first release if needed."
+echo "Edit /etc/life/life-app.env, /etc/life/application-prod.yml, /etc/life/life-admin-app.env and /etc/life/application-admin-prod.yml before the first release if needed."

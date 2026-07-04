@@ -1,6 +1,7 @@
 import { h, type Component } from 'vue';
 import { NIcon } from 'naive-ui';
 import {
+  BarChartOutline,
   DocumentTextOutline,
   GridOutline,
   KeyOutline,
@@ -8,6 +9,7 @@ import {
   MegaphoneOutline,
   PeopleOutline,
   PersonCircleOutline,
+  SettingsOutline,
   ShieldCheckmarkOutline,
 } from '@vicons/ionicons5';
 
@@ -16,6 +18,8 @@ const iconRegistry: Record<string, Component> = {
   user: PeopleOutline,
   content: DocumentTextOutline,
   message: MegaphoneOutline,
+  chart: BarChartOutline,
+  setting: SettingsOutline,
   shield: ShieldCheckmarkOutline,
   menu: ListOutline,
   role: KeyOutline,

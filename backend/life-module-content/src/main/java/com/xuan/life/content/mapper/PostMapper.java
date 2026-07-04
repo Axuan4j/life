@@ -17,7 +17,8 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select({
         "<script>",
         "SELECT * FROM post",
-        "WHERE status = 'PUBLISHED'",
+        "WHERE status = 1",
+        "AND review_status = 1",
         "AND visibility = 'PUBLIC'",
         "AND author_id = #{authorId}",
         "ORDER BY published_at DESC, id DESC",
@@ -28,7 +29,8 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select({
         "<script>",
         "SELECT * FROM post",
-        "WHERE status = 'PUBLISHED'",
+        "WHERE status = 1",
+        "AND review_status = 1",
         "AND visibility = 'PUBLIC'",
         "<if test='authorIds != null and authorIds.size() > 0'>",
         "AND author_id IN",
@@ -51,7 +53,8 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select({
         "<script>",
         "SELECT * FROM post",
-        "WHERE status = 'PUBLISHED'",
+        "WHERE status = 1",
+        "AND review_status = 1",
         "AND visibility = 'PUBLIC'",
         "<if test='excludedAuthorIds != null and excludedAuthorIds.size() > 0'>",
         "AND author_id NOT IN",
@@ -79,7 +82,8 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select({
         "<script>",
         "SELECT * FROM post",
-        "WHERE status = 'PUBLISHED'",
+        "WHERE status = 1",
+        "AND review_status = 1",
         "AND visibility = 'PUBLIC'",
         "AND (",
         "<foreach collection='keywords' item='keyword' separator=' OR '>",
@@ -103,7 +107,8 @@ public interface PostMapper extends BaseMapper<Post> {
     @Select({
         "<script>",
         "SELECT COUNT(1) FROM post",
-        "WHERE status = 'PUBLISHED'",
+        "WHERE status = 1",
+        "AND review_status = 1",
         "AND visibility = 'PUBLIC'",
         "AND (",
         "<foreach collection='keywords' item='keyword' separator=' OR '>",

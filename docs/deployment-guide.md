@@ -1,34 +1,25 @@
 # 部署手册
 
-这是一份可直接分享的部署手册模板，所有 IP、端口、用户名、密码、密钥都使用占位符表示。  
-实际使用时，请把下文中的占位内容替换成你自己的真实配置。
+这是一份可直接分享的部署手册模板，所有 IP、端口、用户名、密码、密钥都使用占位符表示。
 
 ## 占位符说明
-- `<SERVER_IP>`：服务器公网 IP，例如 `203.0.113.10`
-- `<SSH_PORT>`：服务器 SSH 端口，例如 `22`
-- `<SSH_USER>`：服务器登录用户，例如 `root`
-- `<BACKEND_PORT>`：Spring Boot 服务端口，例如 `18080`
-- `<WEB_H5_PORT>`：C 端前端端口，例如 `9001`
-- `<WEB_ADMIN_PORT>`：管理端前端端口，例如 `9002`
-- `<DB_HOST>`：MySQL 主机，例如 `127.0.0.1`
-- `<DB_PORT>`：MySQL 端口，例如 `3306`
-- `<DB_NAME>`：数据库名，例如 `life`
-- `<DB_USERNAME>`：数据库账号，例如 `life`
-- `<DB_PASSWORD>`：数据库密码，例如 `replace_me`
-- `<REDIS_HOST>`：Redis 主机，例如 `127.0.0.1`
-- `<REDIS_PORT>`：Redis 端口，例如 `6379`
-- `<REDIS_PASSWORD>`：Redis 密码，例如 `replace_me`
-- `<JWT_SECRET>`：JWT 密钥，例如一段足够长的随机字符串
-- `<MINIO_ENDPOINT>`：对象存储地址，例如 `http://127.0.0.1:9000`
-- `<MINIO_ACCESS_KEY>`：对象存储账号
-- `<MINIO_SECRET_KEY>`：对象存储密码
-- `<MINIO_BUCKET>`：对象存储桶名
-- `<ADMIN_USERNAME>`：后台管理员用户名，例如 `admin`
-- `<ADMIN_PASSWORD>`：后台管理员密码，例如 `replace_me`
+- `<SERVER_IP>`：服务器公网 IP
+- `<SSH_PORT>`：服务器 SSH 端口
+- `<SSH_USER>`：服务器登录用户
+- `<USER_BACKEND_PORT>`：用户 C 端后端端口，建议 `18080`
+- `<ADMIN_BACKEND_PORT>`：管理端后端端口，建议 `18081`
+- `<WEB_H5_PORT>`：用户 H5 端口，建议 `9001`
+- `<WEB_ADMIN_PORT>`：管理端前端端口，建议 `9002`
+- `<DB_HOST>` `<DB_PORT>` `<DB_NAME>`：MySQL 连接信息
+- `<DB_USERNAME>` `<DB_PASSWORD>`：MySQL 账号密码
+- `<REDIS_HOST>` `<REDIS_PORT>` `<REDIS_PASSWORD>`：Redis 连接信息
+- `<JWT_SECRET>`：JWT 密钥
+- `<MINIO_ENDPOINT>` `<MINIO_ACCESS_KEY>` `<MINIO_SECRET_KEY>` `<MINIO_BUCKET>`：对象存储配置
+- `<ADMIN_USERNAME>` `<ADMIN_PASSWORD>`：管理端登录账号
 
 ## 一、后端部署
 
-### 1. 服务器初始化
+### 1. 初始化服务器
 在本地项目根目录执行：
 
 ```bash
@@ -41,125 +32,147 @@ bash scripts/bootstrap-backend-server.sh \
 这一步会在服务器上安装：
 - `/opt/life/bin/deploy-life.sh`
 - `/opt/life/bin/rollback-life.sh`
+- `/opt/life-admin/bin/deploy-life.sh`
+- `/opt/life-admin/bin/rollback-life.sh`
 - `/etc/systemd/system/life-app.service`
+- `/etc/systemd/system/life-admin-app.service`
 - `/etc/life/life-app.env`
+- `/etc/life/life-admin-app.env`
 - `/etc/life/application-prod.yml`
+- `/etc/life/application-admin-prod.yml`
 
-### 2. 配置后端环境变量
+### 2. 配置用户 C 端后端
 登录服务器：
 
 ```bash
 ssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP>
 ```
 
-编辑环境文件：
+编辑文件：
 
 ```bash
 vim /etc/life/life-app.env
 vim /etc/life/application-prod.yml
 ```
 
-`/etc/life/life-app.env` 示例内容：
+`/etc/life/life-app.env` 示例：
 
 ```bash
-SERVER_PORT=<BACKEND_PORT>
-
+SERVER_PORT=<USER_BACKEND_PORT>
 LIFE_DB_URL=jdbc:mysql://<DB_HOST>:<DB_PORT>/<DB_NAME>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
 LIFE_DB_USERNAME=<DB_USERNAME>
 LIFE_DB_PASSWORD=<DB_PASSWORD>
-
 LIFE_REDIS_HOST=<REDIS_HOST>
 LIFE_REDIS_PORT=<REDIS_PORT>
 LIFE_REDIS_DATABASE=0
 LIFE_REDIS_PASSWORD=<REDIS_PASSWORD>
-
 LIFE_LOG_PATH=/opt/life/logs
 LIFE_LOG_MAX_HISTORY_DAYS=30
-
+LIFE_JWT_ISSUER=life-user-app
 LIFE_JWT_SECRET=<JWT_SECRET>
-
 LIFE_STORAGE_ENDPOINT=<MINIO_ENDPOINT>
 LIFE_STORAGE_ACCESS_KEY=<MINIO_ACCESS_KEY>
 LIFE_STORAGE_SECRET_KEY=<MINIO_SECRET_KEY>
 LIFE_STORAGE_BUCKET=<MINIO_BUCKET>
 ```
 
-`/etc/life/application-prod.yml` 是生产外置配置主文件，后端 jar 内不再携带 `application.yml`。
-服务器通过 `systemd` 固定启用 `prod` profile，并从 `/etc/life/` 读取这个文件。
-
-保存后可检查权限：
+### 3. 配置管理端后端
+编辑文件：
 
 ```bash
-ls -l /etc/life/life-app.env
+vim /etc/life/life-admin-app.env
+vim /etc/life/application-admin-prod.yml
 ```
 
-### 3. 首次发布后端
-回到本地项目根目录执行：
+`/etc/life/life-admin-app.env` 示例：
+
+```bash
+SERVER_PORT=<ADMIN_BACKEND_PORT>
+LIFE_DB_URL=jdbc:mysql://<DB_HOST>:<DB_PORT>/<DB_NAME>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+LIFE_DB_USERNAME=<DB_USERNAME>
+LIFE_DB_PASSWORD=<DB_PASSWORD>
+LIFE_REDIS_HOST=<REDIS_HOST>
+LIFE_REDIS_PORT=<REDIS_PORT>
+LIFE_REDIS_DATABASE=0
+LIFE_REDIS_PASSWORD=<REDIS_PASSWORD>
+LIFE_LOG_PATH=/opt/life-admin/logs
+LIFE_LOG_MAX_HISTORY_DAYS=30
+LIFE_JWT_ISSUER=life-admin-app
+LIFE_JWT_SECRET=<JWT_SECRET>
+LIFE_STORAGE_ENDPOINT=<MINIO_ENDPOINT>
+LIFE_STORAGE_ACCESS_KEY=<MINIO_ACCESS_KEY>
+LIFE_STORAGE_SECRET_KEY=<MINIO_SECRET_KEY>
+LIFE_STORAGE_BUCKET=<MINIO_BUCKET>
+```
+
+### 4. 发布用户 C 端后端
+```bash
+bash scripts/release-backend.sh \
+  --host <SERVER_IP> \
+  --user <SSH_USER> \
+  --port <SSH_PORT> \
+  --health-url http://127.0.0.1:<USER_BACKEND_PORT>/actuator/health
+```
+
+如果依赖没变，只更新业务 jar：
 
 ```bash
 bash scripts/release-backend.sh \
   --host <SERVER_IP> \
   --user <SSH_USER> \
   --port <SSH_PORT> \
-  --health-url http://127.0.0.1:<BACKEND_PORT>/actuator/health
-```
-
-如果这次后端没有依赖变化，只想更新应用 jar，可以加上：
-
-```bash
-bash scripts/release-backend.sh \
-  --host <SERVER_IP> \
-  --user <SSH_USER> \
-  --port <SSH_PORT> \
-  --health-url http://127.0.0.1:<BACKEND_PORT>/actuator/health \
+  --health-url http://127.0.0.1:<USER_BACKEND_PORT>/actuator/health \
   --update-lib no
 ```
 
-如果服务器还没初始化，也可以一步完成：
-
+### 5. 发布管理端后端
 ```bash
-bash scripts/release-backend.sh \
+bash scripts/release-admin-backend.sh \
   --host <SERVER_IP> \
   --user <SSH_USER> \
   --port <SSH_PORT> \
-  --health-url http://127.0.0.1:<BACKEND_PORT>/actuator/health \
-  --bootstrap
+  --health-url http://127.0.0.1:<ADMIN_BACKEND_PORT>/actuator/health
 ```
 
-说明：
-- 新版后端发布会把 `life-app.jar` 和 `lib/*.jar` 分开部署
-- 第一次切到这套结构前，务必先执行一次 `--bootstrap`，让服务器上的 `systemd` 服务模板更新为 `classpath` 启动方式
-- 线上日志应该固定写到 `/opt/life/logs`，不要使用 `./logs` 这类相对路径
-- 当前约定是：本地默认走 `application-dev.yml`，生产通过 `/etc/life/application-prod.yml` 提供外置配置
+如果依赖没变，只更新业务 jar：
 
-### 4. 查看后端运行状态
-登录服务器后执行：
+```bash
+bash scripts/release-admin-backend.sh \
+  --host <SERVER_IP> \
+  --user <SSH_USER> \
+  --port <SSH_PORT> \
+  --health-url http://127.0.0.1:<ADMIN_BACKEND_PORT>/actuator/health \
+  --update-lib no
+```
 
+### 6. 查看后端状态
 ```bash
 systemctl status life-app
+systemctl status life-admin-app
 journalctl -u life-app -f
-readlink /opt/life/current
-curl http://127.0.0.1:<BACKEND_PORT>/actuator/health
+journalctl -u life-admin-app -f
+curl http://127.0.0.1:<USER_BACKEND_PORT>/actuator/health
+curl http://127.0.0.1:<ADMIN_BACKEND_PORT>/actuator/health
 ```
 
-### 5. 后端回滚
-登录服务器执行：
+### 7. 回滚
+用户 C 端后端：
 
 ```bash
-/opt/life/bin/rollback-life.sh
+ssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP> \
+  "SERVICE_NAME=life-app APP_ROOT=/opt/life HEALTH_URL=http://127.0.0.1:<USER_BACKEND_PORT>/actuator/health /opt/life/bin/rollback-life.sh"
 ```
 
-或者直接在本地执行：
+管理端后端：
 
 ```bash
-ssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP> /opt/life/bin/rollback-life.sh
+ssh -p <SSH_PORT> <SSH_USER>@<SERVER_IP> \
+  "SERVICE_NAME=life-admin-app APP_ROOT=/opt/life-admin HEALTH_URL=http://127.0.0.1:<ADMIN_BACKEND_PORT>/actuator/health /opt/life-admin/bin/rollback-life.sh"
 ```
 
 ## 二、前端部署
 
-### 1. 初始化前端发布环境
-在本地项目根目录执行：
-
+### 1. 初始化 Nginx 站点配置
 ```bash
 bash scripts/bootstrap-web-server.sh \
   --host <SERVER_IP> \
@@ -167,66 +180,59 @@ bash scripts/bootstrap-web-server.sh \
   --port <SSH_PORT>
 ```
 
-这一步会在服务器上安装：
-- `/opt/life/bin/deploy-static-site.sh`
+这一步会安装：
 - `/etc/nginx/vhost/life-web-user-h5.conf`
 - `/etc/nginx/vhost/life-web-admin.conf`
 
-并自动执行：
+当前约定：
+- 用户 H5 `/api` 反代到 `127.0.0.1:<USER_BACKEND_PORT>`
+- 管理端 `/api` 反代到 `127.0.0.1:<ADMIN_BACKEND_PORT>`
 
+### 2. 发布用户 H5
 ```bash
-nginx -t
-systemctl reload nginx
+bash scripts/release-web-user-h5.sh \
+  --host <SERVER_IP> \
+  --user <SSH_USER> \
+  --port <SSH_PORT>
 ```
 
-### 2. 发布 C 端 H5
-在本地项目根目录执行：
+如果你确实要把用户 H5 API 指到一个独立地址，再额外带上：
 
 ```bash
 bash scripts/release-web-user-h5.sh \
   --host <SERVER_IP> \
   --user <SSH_USER> \
   --port <SSH_PORT> \
-  --public-origin http://<SERVER_IP>:<WEB_H5_PORT>
+  --api-base-url http://<TARGET_HOST>:<TARGET_PORT>
 ```
 
-说明：
-- 构建时会把 `VITE_API_BASE_URL` 注入成 `http://<SERVER_IP>:<WEB_H5_PORT>`
-- 页面请求会走 `http://<SERVER_IP>:<WEB_H5_PORT>/api/...`
-- `nginx` 会把 `/api` 反代到 `127.0.0.1:<BACKEND_PORT>`
+### 3. 发布管理端前端
+```bash
+bash scripts/release-web-admin.sh \
+  --host <SERVER_IP> \
+  --user <SSH_USER> \
+  --port <SSH_PORT>
+```
 
-### 3. 发布管理端
-在本地项目根目录执行：
+如果你确实要把管理端请求指向一个独立 API 地址，再额外带上：
 
 ```bash
 bash scripts/release-web-admin.sh \
   --host <SERVER_IP> \
   --user <SSH_USER> \
   --port <SSH_PORT> \
-  --public-origin http://<SERVER_IP>:<WEB_ADMIN_PORT>
+  --api-base-url http://<TARGET_HOST>:<TARGET_PORT>
 ```
 
-### 4. 检查前端站点状态
-在本地验证：
-
+### 4. 验证站点
 ```bash
 curl -I http://<SERVER_IP>:<WEB_H5_PORT>/
-curl -I http://<SERVER_IP>:<WEB_H5_PORT>/login
-
 curl -I http://<SERVER_IP>:<WEB_ADMIN_PORT>/
-curl -I http://<SERVER_IP>:<WEB_ADMIN_PORT>/login
+curl http://127.0.0.1:<USER_BACKEND_PORT>/actuator/health
+curl http://127.0.0.1:<ADMIN_BACKEND_PORT>/actuator/health
 ```
 
-用户 H5 登录验证：
-
-```bash
-open http://<SERVER_IP>:<WEB_H5_PORT>/login
-```
-
-说明：
-- C 端登录现在是三段式：`/api/auth/captcha` -> `/api/auth/captcha/verify` -> `/api/auth/login`
-- 因为验证码需要按图片内容完成点选，部署验收时推荐直接在浏览器完成一次真实登录
-- 如果只做接口可用性校验，优先验证首页静态资源、后端健康检查和后台登录接口
+管理端登录验证：
 
 ```bash
 cat <<'EOF' >/tmp/admin-login.json
@@ -241,64 +247,17 @@ curl -X POST \
 rm -f /tmp/admin-login.json
 ```
 
-### 5. 查看 Nginx 配置和重载状态
-登录服务器执行：
-
-```bash
-nginx -t
-systemctl status nginx
-ls -l /etc/nginx/vhost/
-sed -n '1,200p' /etc/nginx/vhost/life-web-user-h5.conf
-sed -n '1,200p' /etc/nginx/vhost/life-web-admin.conf
-```
-
-如果手动修改了配置，重载命令是：
-
-```bash
-systemctl reload nginx
-```
-
 ## 三、常用目录
-- 后端当前版本：`/opt/life/current`
-- 后端版本目录：`/opt/life/releases`
-- 后端上传目录：`/opt/life/uploads`
-- C 端当前版本：`/opt/life/web-user-h5/current`
-- C 端版本目录：`/opt/life/web-user-h5/releases`
-- 管理端当前版本：`/opt/life/web-admin/current`
-- 管理端版本目录：`/opt/life/web-admin/releases`
+- 用户 C 端后端当前版本：`/opt/life/current`
+- 用户 C 端后端版本目录：`/opt/life/releases`
+- 管理端后端当前版本：`/opt/life-admin/current`
+- 管理端后端版本目录：`/opt/life-admin/releases`
+- 用户 H5 当前版本：`/opt/life/web-user-h5/current`
+- 管理端前端当前版本：`/opt/life/web-admin/current`
 
-## 四、常用排查命令
-
-### 后端排查
-```bash
-systemctl status life-app --no-pager -l
-journalctl -u life-app -n 200 --no-pager
-ss -ltnp | grep <BACKEND_PORT>
-curl http://127.0.0.1:<BACKEND_PORT>/actuator/health
-```
-
-### Nginx 排查
-```bash
-systemctl status nginx --no-pager -l
-journalctl -u nginx -n 100 --no-pager
-ss -ltnp | egrep ':<WEB_H5_PORT>|:<WEB_ADMIN_PORT>'
-tail -n 100 /var/log/nginx/error.log
-tail -n 100 /var/log/nginx/access.log
-```
-
-### 发布脚本排查
-```bash
-ls -lah /opt/life/bin/
-ls -lah /opt/life/uploads/
-ls -lah /opt/life/releases/
-ls -lah /opt/life/web-user-h5/releases/
-ls -lah /opt/life/web-admin/releases/
-```
-
-## 五、推荐发布顺序
-1. 先确认数据库、Redis、对象存储都可用
-2. 先发布后端
-3. 确认后端健康检查通过
-4. 再发布 C 端
-5. 最后发布管理端
-6. 用浏览器或 `curl` 做一次登录验证
+## 四、推荐发布顺序
+1. 先确认 MySQL、Redis、对象存储可用
+2. 先发布用户 C 端后端
+3. 再发布管理端后端
+4. 两个健康检查都通过后，再发前端
+5. 最后做一次 H5 登录和管理端登录验证

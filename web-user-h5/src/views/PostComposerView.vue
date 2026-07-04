@@ -27,18 +27,15 @@
       <div class="action-grid">
         <button type="button" class="action-card topic-card" @click="openTopicEditor">
           <span class="action-icon">#</span>
-          <strong>{{ topic ? '修改话题' : '添加话题' }}</strong>
-          <small>{{ topic ? `当前：#${topic}` : '让内容更容易被发现' }}</small>
+          <strong>话题</strong>
         </button>
         <button type="button" class="action-card emoji-card" @click="emojiPickerVisible = true">
           <span class="action-icon">😊</span>
           <strong>表情</strong>
-          <small>常用社交表情，一键插入正文</small>
         </button>
         <button type="button" class="action-card poll-card" @click="openPollEditor">
           <span class="action-icon">📊</span>
-          <strong>{{ pollValue ? '编辑投票' : '发起投票' }}</strong>
-          <small>{{ pollValue ? `${pollValue.options.length} 个选项` : '适合做轻量互动' }}</small>
+          <strong>投票</strong>
         </button>
       </div>
 
@@ -46,7 +43,6 @@
         <button type="button" class="setting-item" @click="visibilityPopupVisible = true">
           <div>
             <strong>谁可以看</strong>
-            <p>先支持最稳的两种范围，避免做半成品权限</p>
           </div>
           <span>{{ visibilityLabel }}</span>
         </button>
@@ -55,7 +51,6 @@
       <div v-if="pollValue" class="poll-preview">
         <div class="poll-preview-head">
           <div>
-            <span class="section-badge">投票预览</span>
             <strong>{{ pollValue.question }}</strong>
           </div>
           <button type="button" class="plain-link danger" @click="clearPoll">移除</button>
@@ -75,7 +70,6 @@
           <strong>设置话题</strong>
           <button type="button" class="plain-link" @click="topicEditorVisible = false">取消</button>
         </div>
-        <p class="sheet-tip">发布后会以 `#话题#` 的形式写入正文开头，方便列表和详情页单独展示。</p>
         <van-field
           v-model="topicDraft"
           label="话题"
@@ -96,7 +90,6 @@
           <strong>选择表情</strong>
           <button type="button" class="plain-link" @click="emojiPickerVisible = false">关闭</button>
         </div>
-        <p class="sheet-tip">先放常用的一组，点击后会直接追加到正文末尾。</p>
         <van-swipe :show-indicators="emojiPages.length > 1" class="emoji-swipe" :loop="false">
           <van-swipe-item v-for="(page, pageIndex) in emojiPages" :key="`emoji-page-${pageIndex}`">
             <div class="emoji-grid">
@@ -115,7 +108,6 @@
           <strong>发起投票</strong>
           <button type="button" class="plain-link" @click="pollEditorVisible = false">取消</button>
         </div>
-        <p class="sheet-tip">先支持单题多选项的轻量投票，发布后会在正文里按统一结构渲染。</p>
         <van-field
           v-model="pollDraft.question"
           label="问题"
@@ -169,7 +161,6 @@
           >
             <div>
               <strong>{{ option.label }}</strong>
-              <p>{{ option.description }}</p>
             </div>
             <span>{{ visibility === option.value ? '已选' : '' }}</span>
           </button>
@@ -209,8 +200,8 @@ const pollDraft = ref<{ question: string; options: string[] }>({
 });
 
 const visibilityOptions = [
-  { value: 'PUBLIC' as const, label: '公开', description: '登录用户都可以在主页、详情和内容流里看到' },
-  { value: 'PRIVATE' as const, label: '仅自己', description: '只在你自己的个人主页和详情页里可见' },
+  { value: 'PUBLIC' as const, label: '公开' },
+  { value: 'PRIVATE' as const, label: '仅自己' },
 ];
 
 const visibilityLabel = computed(
@@ -263,13 +254,13 @@ async function submit() {
   }
   submitting.value = true;
   try {
-    await feedStore.publishPost({
+    const result = await feedStore.publishPost({
       contentText: composedContent.value,
       visibility: visibility.value,
       medias: [],
     });
     resetComposer();
-    showSuccessToast('发布成功');
+    showSuccessToast(result.message || '发布成功');
   } finally {
     submitting.value = false;
   }
@@ -455,7 +446,7 @@ function chunkArray<T>(source: T[], size: number) {
 
 .action-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -465,7 +456,7 @@ function chunkArray<T>(source: T[], size: number) {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  min-height: 132px;
+  /* min-height: 132px; */
   padding: 16px 14px;
   border: none;
   border-radius: 22px;
@@ -501,11 +492,6 @@ function chunkArray<T>(source: T[], size: number) {
   font-size: 15px;
 }
 
-.action-card small {
-  color: var(--lf-color-text-secondary);
-  line-height: 1.5;
-}
-
 .settings {
   margin-top: 16px;
   overflow: hidden;
@@ -528,13 +514,6 @@ function chunkArray<T>(source: T[], size: number) {
   color: var(--lf-color-text-primary);
 }
 
-.setting-item p {
-  margin: 6px 0 0;
-  color: var(--lf-color-text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
 .setting-item span {
   color: #f06d47;
   font-size: 14px;
@@ -555,21 +534,9 @@ function chunkArray<T>(source: T[], size: number) {
 
 .poll-preview-head strong {
   display: block;
-  margin-top: 8px;
   font-size: 16px;
   line-height: 1.55;
   color: var(--lf-color-text-primary);
-}
-
-.section-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 145, 112, 0.16);
-  color: #eb6b47;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .plain-link {
@@ -637,13 +604,6 @@ function chunkArray<T>(source: T[], size: number) {
 .sheet-head strong {
   font-size: 15px;
   color: var(--lf-color-text-primary);
-}
-
-.sheet-tip {
-  margin: 12px 0;
-  color: var(--lf-color-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .sheet-actions {
@@ -738,13 +698,6 @@ function chunkArray<T>(source: T[], size: number) {
   display: block;
   font-size: 15px;
   color: var(--lf-color-text-primary);
-}
-
-.visibility-item p {
-  margin: 6px 0 0;
-  color: var(--lf-color-text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .visibility-item span {

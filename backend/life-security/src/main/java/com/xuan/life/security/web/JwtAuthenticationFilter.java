@@ -52,6 +52,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     tokenUser.getRole(),
                     tokenUser.getUserId()
                 );
+                if (tokenUser.getTokenVersion() != latestUser.getTokenVersion()) {
+                    throw new BusinessException(com.xuan.life.common.exception.ErrorCode.UNAUTHORIZED, "登录凭证已失效，请重新登录");
+                }
 
                 // 这里显式按平台角色回查一次真实账号，避免拆表后仍然只按用户名回单表查询，造成身份串域。
                 UsernamePasswordAuthenticationToken authenticationToken =

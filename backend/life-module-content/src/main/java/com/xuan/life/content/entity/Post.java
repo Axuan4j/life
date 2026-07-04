@@ -16,7 +16,9 @@ public class Post {
     private Long authorId;
     private String contentText;
     private String visibility;
-    private String status;
+    private Integer status;
+    private Integer reviewStatus;
+    private String reviewReason;
     private String clientIp;
     private String ipRegion;
     private LocalDateTime publishedAt;
@@ -57,12 +59,28 @@ public class Post {
         this.visibility = visibility;
     }
 
-    public String getStatus() {
+    public Integer getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Integer getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(Integer reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public String getReviewReason() {
+        return reviewReason;
+    }
+
+    public void setReviewReason(String reviewReason) {
+        this.reviewReason = reviewReason;
     }
 
     public String getClientIp() {

@@ -10,7 +10,7 @@ export interface ParsedPostContent {
 }
 
 const LEADING_TOPIC_PATTERN = /^\s*#([^#\r\n]{1,20})#(?:\s+|$)/;
-const POLL_BLOCK_PATTERN = /\n{2}\[投票\]\n([\s\S]*?)\n\[\/投票\]\s*$/;
+const POLL_BLOCK_PATTERN = /(?:^|\n{2})\[投票\]\n([\s\S]*?)\n\[\/投票\]\s*$/;
 
 export function normalizeTopic(topic: string) {
   return topic.replace(/#/g, '').trim().slice(0, 20);

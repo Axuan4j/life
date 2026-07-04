@@ -3,22 +3,31 @@ package com.xuan.life.admin.web;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xuan.life.admin.model.AdminPermissionCodes;
+import com.xuan.life.admin.service.AdminUserGovernanceApplicationService;
+import com.xuan.life.admin.web.request.AdminUpdateUserGovernanceRequest;
+import com.xuan.life.admin.web.response.AdminUserDetailResponse;
 import com.xuan.life.admin.web.response.AdminUserListItemResponse;
 import com.xuan.life.common.api.ApiResponse;
 import com.xuan.life.common.api.PageResponse;
 import com.xuan.life.content.entity.Post;
 import com.xuan.life.content.mapper.PostMapper;
+import com.xuan.life.security.model.LifeAuthenticatedUser;
 import com.xuan.life.social.service.FollowApplicationService;
 import com.xuan.life.user.entity.UserAccount;
 import com.xuan.life.user.entity.UserProfile;
 import com.xuan.life.user.mapper.UserAccountMapper;
 import com.xuan.life.user.mapper.UserProfileMapper;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,17 +46,20 @@ public class AdminUserController {
     private final UserProfileMapper userProfileMapper;
     private final PostMapper postMapper;
     private final FollowApplicationService followApplicationService;
+    private final AdminUserGovernanceApplicationService adminUserGovernanceApplicationService;
 
     public AdminUserController(
         UserAccountMapper userAccountMapper,
         UserProfileMapper userProfileMapper,
         PostMapper postMapper,
-        FollowApplicationService followApplicationService
+        FollowApplicationService followApplicationService,
+        AdminUserGovernanceApplicationService adminUserGovernanceApplicationService
     ) {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
         this.postMapper = postMapper;
         this.followApplicationService = followApplicationService;
+        this.adminUserGovernanceApplicationService = adminUserGovernanceApplicationService;
     }
 
     @GetMapping
@@ -93,6 +105,23 @@ public class AdminUserController {
         }).toList();
 
         return ApiResponse.success(new PageResponse<>(items, page.getTotal(), pageNo, pageSize));
+    }
+
+    @GetMapping("/{userId}")
+    @PreAuthorize("hasAuthority('" + AdminPermissionCodes.USER + "')")
+    public ApiResponse<AdminUserDetailResponse> getUserDetail(@PathVariable("userId") Long userId) {
+        return ApiResponse.success(adminUserGovernanceApplicationService.getUserDetail(userId));
+    }
+
+    @PatchMapping("/{userId}/governance")
+    @PreAuthorize("hasAuthority('" + AdminPermissionCodes.USER + "')")
+    public ApiResponse<Void> updateGovernance(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
+        @PathVariable("userId") Long userId,
+        @Valid @RequestBody AdminUpdateUserGovernanceRequest request
+    ) {
+        adminUserGovernanceApplicationService.updateGovernance(userId, request, currentUser.getUserId());
+        return ApiResponse.success(null);
     }
 
     private void applyKeywordFilter(LambdaQueryWrapper<UserAccount> wrapper, String keyword) {

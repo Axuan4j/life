@@ -6,6 +6,7 @@
       :collapsed="shellStore.sidebarCollapsed"
       :collapsed-width="72"
       :width="248"
+      :inverted="shellStore.isDarkMode"
       class="admin-shell__sider"
     >
       <div class="admin-logo-card">
@@ -23,6 +24,7 @@
           :collapsed="shellStore.sidebarCollapsed"
           :collapsed-width="72"
           :collapsed-icon-size="20"
+          :inverted="shellStore.isDarkMode"
           :options="menuOptions"
           accordion
           class="admin-menu"
@@ -297,7 +299,8 @@ async function handleLogout() {
 }
 
 .admin-shell__sider {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--life-card-strong);
+  border-right: 1px solid var(--life-border);
 }
 
 .admin-logo-card {
@@ -348,6 +351,13 @@ async function handleLogout() {
 .admin-menu :deep(.n-submenu-children .n-menu-item-content),
 .admin-menu :deep(.n-submenu-children .n-submenu-children-header) {
   font-size: 14px;
+}
+
+.admin-menu :deep(.n-menu-item-content-header),
+.admin-menu :deep(.n-menu-item-content__icon),
+.admin-menu :deep(.n-submenu-children-header__content),
+.admin-menu :deep(.n-submenu-children-header__arrow) {
+  color: inherit;
 }
 
 .admin-menu :deep(.n-menu-item-content.n-menu-item-content--selected),

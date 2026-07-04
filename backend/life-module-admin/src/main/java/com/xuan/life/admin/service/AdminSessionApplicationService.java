@@ -11,7 +11,10 @@ import com.xuan.life.security.model.LifeRole;
 import com.xuan.life.security.model.LifeAuthenticatedUser;
 import com.xuan.life.security.model.TokenPair;
 import com.xuan.life.security.service.JwtTokenService;
+import com.xuan.life.security.service.LifeAuthenticatedUserLookupService;
+import com.xuan.life.user.web.request.RefreshTokenRequest;
 import com.xuan.life.user.web.request.LoginRequest;
+import io.jsonwebtoken.Claims;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,17 +24,20 @@ public class AdminSessionApplicationService {
 
     private final AdminSecurityDetailsService adminSecurityDetailsService;
     private final JwtTokenService jwtTokenService;
+    private final LifeAuthenticatedUserLookupService authenticatedUserLookupService;
     private final AdminPermissionService adminPermissionService;
     private final AdminMenuTreeBuilder adminMenuTreeBuilder;
 
     public AdminSessionApplicationService(
         AdminSecurityDetailsService adminSecurityDetailsService,
         JwtTokenService jwtTokenService,
+        LifeAuthenticatedUserLookupService authenticatedUserLookupService,
         AdminPermissionService adminPermissionService,
         AdminMenuTreeBuilder adminMenuTreeBuilder
     ) {
         this.adminSecurityDetailsService = adminSecurityDetailsService;
         this.jwtTokenService = jwtTokenService;
+        this.authenticatedUserLookupService = authenticatedUserLookupService;
         this.adminPermissionService = adminPermissionService;
         this.adminMenuTreeBuilder = adminMenuTreeBuilder;
     }
@@ -54,6 +60,20 @@ public class AdminSessionApplicationService {
             session.permissions(),
             session.homePath()
         );
+    }
+
+    public TokenPair refresh(RefreshTokenRequest request) {
+        Claims claims = jwtTokenService.parseRefreshToken(request.refreshToken());
+        LifeAuthenticatedUser tokenUser = jwtTokenService.toAuthenticatedUser(claims);
+        LifeAuthenticatedUser user = authenticatedUserLookupService.loadByRoleAndUserId(
+            tokenUser.getRole(),
+            tokenUser.getUserId()
+        );
+        return jwtTokenService.issueTokenPair(user);
+    }
+
+    public void logout() {
+        // V1 保持 JWT 无状态退出：服务端不记黑名单，接口保留给后台统一清理本地会话。
     }
 
     public AdminSessionResponse session(Long userId) {

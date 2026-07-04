@@ -50,6 +50,48 @@
       <div>互动记录</div>
       <div>账号设置</div>
     </section>
+    <section v-if="checkInStatus" class="checkin-panel">
+      <div class="checkin-head">
+        <div>
+          <strong>每日签到</strong>
+          <p>本月已签到 {{ checkInStatus.signedCount }} 天</p>
+        </div>
+        <van-button
+          round
+          size="small"
+          type="primary"
+          class="checkin-button"
+          :loading="signingIn"
+          :disabled="checkInStatus.checkedInToday"
+          @click="handleCheckIn"
+        >
+          {{ checkInStatus.checkedInToday ? '今日已签到' : '签到 +1 积分' }}
+        </van-button>
+      </div>
+      <div class="checkin-summary">
+        <article>
+          <span>当前积分</span>
+          <strong>{{ checkInStatus.totalPoints }}</strong>
+        </article>
+        <article>
+          <span>签到月份</span>
+          <strong>{{ checkInMonthLabel }}</strong>
+        </article>
+      </div>
+      <div class="checkin-days">
+        <div
+          v-for="day in monthDays"
+          :key="`checkin-day-${day}`"
+          class="checkin-day"
+          :class="{
+            'checkin-day--signed': signedDaySet.has(day),
+            'checkin-day--today': todayOfMonth === day,
+          }"
+        >
+          {{ day }}
+        </div>
+      </div>
+    </section>
     <section class="panel">
       <div class="circle-card">
         <div class="panel-head">
@@ -131,28 +173,57 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { showSuccessToast } from 'vant';
 import { useUserAuthStore } from '../stores/auth';
-import { followApi, postApi } from '../services/api';
+import { followApi, postApi, userApi, type UserCheckInStatusResponse } from '../services/api';
 import { getFallbackAvatar, mapPostCardToFeedPost, mapUserProfile } from '../services/view-models';
 
 const router = useRouter();
 const authStore = useUserAuthStore();
 const followingProfiles = ref<ReturnType<typeof mapUserProfile>[]>([]);
 const userPosts = ref<ReturnType<typeof mapPostCardToFeedPost>[]>([]);
+const checkInStatus = ref<UserCheckInStatusResponse | null>(null);
+const signingIn = ref(false);
 const profile = computed(() => (authStore.currentUser ? mapUserProfile(authStore.currentUser) : null));
+const monthDays = computed(() =>
+  Array.from({ length: checkInStatus.value?.daysInMonth ?? 0 }, (_, index) => index + 1),
+);
+const signedDaySet = computed(() => new Set(checkInStatus.value?.signedDays ?? []));
+const todayOfMonth = computed(() => checkInStatus.value?.todayDayOfMonth ?? 0);
+const checkInMonthLabel = computed(() => {
+  if (!checkInStatus.value) {
+    return '';
+  }
+  return `${checkInStatus.value.currentYear}.${String(checkInStatus.value.currentMonth).padStart(2, '0')}`;
+});
 
 onMounted(async () => {
   if (!authStore.currentUser) {
     await authStore.fetchCurrentUser();
   }
-  const profiles = await followApi.getMyFollowingProfiles();
+  const [profiles, status] = await Promise.all([followApi.getMyFollowingProfiles(), userApi.getCheckInStatus()]);
   followingProfiles.value = profiles.map(mapUserProfile).slice(0, 3);
+  checkInStatus.value = status;
   if (authStore.currentUser) {
     const posts = await postApi.listByUser(authStore.currentUser.userId, 1, 20);
     // 个人主页也复用 Feed 视图模型，保证同一条内容在不同页面展示口径一致。
     userPosts.value = posts.map((item) => mapPostCardToFeedPost(item, 'FOLLOWING'));
   }
 });
+
+async function handleCheckIn() {
+  if (!checkInStatus.value || checkInStatus.value.checkedInToday || signingIn.value) {
+    return;
+  }
+  signingIn.value = true;
+  try {
+    const status = await userApi.checkIn();
+    checkInStatus.value = status;
+    showSuccessToast(status.rewardGranted ? '签到成功，积分 +1' : '今天已经签过到了');
+  } finally {
+    signingIn.value = false;
+  }
+}
 
 async function logout() {
   await authStore.logout();
@@ -261,6 +332,7 @@ async function logout() {
 }
 
 .quick-actions,
+.checkin-panel,
 .panel,
 .posts-panel,
 .logout-wrap {
@@ -277,6 +349,91 @@ async function logout() {
   gap: 8px;
   text-align: center;
   font-size: 13px;
+}
+
+.checkin-panel {
+  background: linear-gradient(135deg, #fff0e5 0%, #fffaf4 56%, #ffffff 100%);
+  box-shadow: 0 18px 34px rgba(255, 126, 93, 0.12);
+}
+
+.checkin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.checkin-head strong {
+  display: block;
+  font-size: 18px;
+}
+
+.checkin-head p {
+  margin: 6px 0 0;
+  color: var(--lf-color-text-secondary);
+  font-size: 13px;
+}
+
+.checkin-button {
+  flex-shrink: 0;
+  --van-button-primary-background: #ff7a56;
+  --van-button-primary-border-color: #ff7a56;
+}
+
+.checkin-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.checkin-summary article {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.checkin-summary span {
+  display: block;
+  color: var(--lf-color-text-secondary);
+  font-size: 12px;
+}
+
+.checkin-summary strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--lf-color-text-primary);
+  font-size: 22px;
+}
+
+.checkin-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.checkin-day {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--lf-color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(243, 223, 214, 0.72);
+}
+
+.checkin-day--signed {
+  background: linear-gradient(180deg, #ff9a70 0%, #ff764d 100%);
+  color: #fff;
+  box-shadow: 0 10px 18px rgba(255, 118, 77, 0.24);
+}
+
+.checkin-day--today {
+  outline: 2px solid rgba(255, 122, 86, 0.24);
+  outline-offset: 2px;
 }
 
 .panel {

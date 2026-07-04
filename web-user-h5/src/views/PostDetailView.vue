@@ -31,17 +31,37 @@
       <p v-if="post.topic" class="topic"># {{ post.topic }}</p>
       <p v-if="post.displayContentText" class="content">{{ post.displayContentText }}</p>
 
-      <div v-if="post.poll" class="poll-card">
+      <div v-if="displayPollOptions.length > 0" class="poll-card">
         <div class="poll-head">
           <span class="poll-badge">投票</span>
-          <strong>{{ post.poll.question }}</strong>
+          <strong>{{ displayPollQuestion }}</strong>
+          <p class="poll-meta">
+            <span>{{ displayPollTotalVotes }} 人参与</span>
+            <span v-if="pollState?.votedByCurrentUser">· 你已投票</span>
+          </p>
         </div>
         <div class="poll-options">
-          <div v-for="(option, index) in post.poll.options" :key="`${post.postId}-poll-${index}`" class="poll-option">
-            <span>{{ index + 1 }}</span>
-            <strong>{{ option }}</strong>
-          </div>
+          <button
+            v-for="option in displayPollOptions"
+            :key="`${post.postId}-poll-${option.optionIndex}`"
+            type="button"
+            class="poll-option"
+            :class="{ selected: option.selectedByCurrentUser }"
+            :disabled="pollSubmitting"
+            @click="submitPollVote(option.optionIndex)"
+          >
+            <span class="poll-option-bar" :style="{ width: `${option.votePercent}%` }"></span>
+            <div class="poll-option-main">
+              <span class="poll-order">{{ option.optionIndex + 1 }}</span>
+              <strong>{{ option.optionText }}</strong>
+            </div>
+            <div class="poll-option-side">
+              <em>{{ option.votePercent }}%</em>
+              <small>{{ option.voteCount }} 票</small>
+            </div>
+          </button>
         </div>
+        <p class="poll-tip">点击选项即可投票，再点其他选项会更新你的选择。</p>
       </div>
 
       <div v-if="post.images.length > 0" class="image-grid">
@@ -290,7 +310,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showSuccessToast } from 'vant';
 import { useUserAuthStore } from '../stores/auth';
-import { postApi } from '../services/api';
+import { postApi, type PostPollStateResponse } from '../services/api';
 import {
   getFallbackAvatar,
   mapComment,
@@ -322,6 +342,8 @@ const interaction = ref<PostInteractionViewModel>({
   repostedByCurrentUser: false,
   likedUsers: [],
 });
+const pollState = ref<PostPollStateResponse | null>(null);
+const pollSubmitting = ref(false);
 const commentText = ref('');
 const submittingComment = ref(false);
 const replyTarget = ref<{ parentCommentId: EntityId; replyToUserId: EntityId; displayName: string } | null>(null);
@@ -346,6 +368,25 @@ const tabs = computed(() => [
   { key: 'comments' as const, label: `评论 ${interaction.value.commentCount}` },
   { key: 'likes' as const, label: `点赞 ${interaction.value.likeCount}` },
 ]);
+
+const displayPollQuestion = computed(() => pollState.value?.question ?? post.value?.poll?.question ?? '');
+const displayPollOptions = computed(() => {
+  if (pollState.value) {
+    return pollState.value.options;
+  }
+  const parsedPoll = post.value?.poll;
+  if (!parsedPoll) {
+    return [];
+  }
+  return parsedPoll.options.map((optionText, optionIndex) => ({
+    optionIndex,
+    optionText,
+    voteCount: 0,
+    votePercent: 0,
+    selectedByCurrentUser: false,
+  }));
+});
+const displayPollTotalVotes = computed(() => pollState.value?.totalVotes ?? 0);
 
 const activeTabIndex = computed({
   get: () => tabs.value.findIndex((tab) => tab.key === activeTab.value),
@@ -383,8 +424,22 @@ async function loadPostDetail() {
   const mapped = mapPostDetail(detail);
   post.value = mapped.post;
   interaction.value = mapped.interaction;
+  pollState.value = detail.poll ?? null;
   comments.value = commentList.map(mapComment);
   reposts.value = repostList.map(mapRepostItem);
+}
+
+async function submitPollVote(optionIndex: number) {
+  if (!post.value?.poll) {
+    return;
+  }
+  pollSubmitting.value = true;
+  try {
+    pollState.value = await postApi.votePoll(postId.value, { optionIndex });
+    showSuccessToast('投票成功');
+  } finally {
+    pollSubmitting.value = false;
+  }
 }
 
 async function toggleLike() {
@@ -655,6 +710,12 @@ function chunkArray<T>(items: T[], size: number) {
   color: var(--lf-color-text-primary);
 }
 
+.poll-meta {
+  margin: 0;
+  color: var(--lf-color-text-secondary);
+  font-size: 12px;
+}
+
 .poll-badge {
   width: fit-content;
   padding: 4px 10px;
@@ -672,17 +733,50 @@ function chunkArray<T>(items: T[], size: number) {
 }
 
 .poll-option {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   min-height: 42px;
   padding: 0 12px;
+  border: none;
   border-radius: 14px;
   background: rgba(247, 248, 252, 0.95);
   box-shadow: inset 0 0 0 1px rgba(229, 231, 235, 0.85);
+  overflow: hidden;
+  text-align: left;
 }
 
-.poll-option span {
+.poll-option:disabled {
+  opacity: 0.7;
+}
+
+.poll-option.selected {
+  box-shadow: inset 0 0 0 1px rgba(255, 145, 112, 0.38);
+}
+
+.poll-option-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(255, 145, 112, 0.16) 0%, rgba(255, 145, 112, 0.04) 100%);
+  pointer-events: none;
+}
+
+.poll-option-main,
+.poll-option-side {
+  position: relative;
+  z-index: 1;
+}
+
+.poll-option-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.poll-order {
   display: grid;
   place-items: center;
   width: 22px;
@@ -697,6 +791,32 @@ function chunkArray<T>(items: T[], size: number) {
 .poll-option strong {
   font-size: 14px;
   font-weight: 500;
+}
+
+.poll-option-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  color: var(--lf-color-text-secondary);
+}
+
+.poll-option-side em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  color: #eb6b47;
+}
+
+.poll-option-side small {
+  font-size: 11px;
+}
+
+.poll-tip {
+  margin: 10px 0 0;
+  color: var(--lf-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .image-grid {

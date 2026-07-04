@@ -2,6 +2,7 @@ package com.xuan.life.admin.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.xuan.life.admin.entity.AdminAccount;
+import com.xuan.life.admin.model.AdminLoginResultCodes;
 import com.xuan.life.admin.mapper.AdminAccountMapper;
 import com.xuan.life.common.exception.BusinessException;
 import com.xuan.life.common.exception.ErrorCode;
@@ -25,17 +26,20 @@ public class AdminSecurityDetailsService implements LifeAuthenticatedUserLoader 
     private final PasswordEncoder passwordEncoder;
     private final IpRegionService ipRegionService;
     private final ObjectProvider<List<AdditionalAuthorityProvider>> authorityProviders;
+    private final AdminLoginLogService adminLoginLogService;
 
     public AdminSecurityDetailsService(
         AdminAccountMapper adminAccountMapper,
         PasswordEncoder passwordEncoder,
         IpRegionService ipRegionService,
-        ObjectProvider<List<AdditionalAuthorityProvider>> authorityProviders
+        ObjectProvider<List<AdditionalAuthorityProvider>> authorityProviders,
+        AdminLoginLogService adminLoginLogService
     ) {
         this.adminAccountMapper = adminAccountMapper;
         this.passwordEncoder = passwordEncoder;
         this.ipRegionService = ipRegionService;
         this.authorityProviders = authorityProviders;
+        this.adminLoginLogService = adminLoginLogService;
     }
 
     @Override
@@ -58,15 +62,22 @@ public class AdminSecurityDetailsService implements LifeAuthenticatedUserLoader 
     }
 
     public LifeAuthenticatedUser authenticate(String username, String rawPassword, String clientIp) {
+        String ipRegion = ipRegionService.resolveRegion(clientIp);
         AdminAccount account = adminAccountMapper.selectOne(
             new LambdaQueryWrapper<AdminAccount>().eq(AdminAccount::getUsername, username)
         );
         if (account == null || !passwordEncoder.matches(rawPassword, account.getPasswordHash())) {
+            adminLoginLogService.log(null, username, clientIp, ipRegion, AdminLoginResultCodes.FAILED, "用户名或密码错误");
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "用户名或密码错误");
+        }
+        if (account.getStatus() == null || account.getStatus() != 1) {
+            adminLoginLogService.log(account.getId(), account.getUsername(), clientIp, ipRegion, AdminLoginResultCodes.FAILED, "管理员账号已被禁用");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "管理员账号已被禁用");
         }
 
         LifeAuthenticatedUser authenticatedUser = buildAuthenticatedUser(account);
-        updateLoginLocation(account, clientIp);
+        updateLoginLocation(account, clientIp, ipRegion);
+        adminLoginLogService.log(account.getId(), account.getUsername(), clientIp, ipRegion, AdminLoginResultCodes.SUCCESS, "");
         return authenticatedUser;
     }
 
@@ -98,13 +109,14 @@ public class AdminSecurityDetailsService implements LifeAuthenticatedUserLoader 
             account.getPasswordHash(),
             LifeRole.ADMIN,
             true,
+            account.getTokenVersion() == null ? 0L : account.getTokenVersion(),
             extraAuthorities
         );
     }
 
-    private void updateLoginLocation(AdminAccount account, String clientIp) {
+    private void updateLoginLocation(AdminAccount account, String clientIp, String ipRegion) {
         account.setLastLoginIp(clientIp);
-        account.setLastLoginRegion(ipRegionService.resolveRegion(clientIp));
+        account.setLastLoginRegion(ipRegion);
         account.setLastLoginAt(LocalDateTime.now());
         adminAccountMapper.updateById(account);
     }

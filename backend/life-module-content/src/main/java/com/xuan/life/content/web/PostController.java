@@ -5,10 +5,13 @@ import com.xuan.life.common.web.ClientIpResolver;
 import com.xuan.life.content.service.PostApplicationService;
 import com.xuan.life.content.web.request.CreatePostCommentRequest;
 import com.xuan.life.content.web.request.CreatePostRequest;
+import com.xuan.life.content.web.request.VotePostPollRequest;
+import com.xuan.life.content.web.response.CreatePostResponse;
 import com.xuan.life.content.web.response.PostCardResponse;
 import com.xuan.life.content.web.response.PostCommentResponse;
 import com.xuan.life.content.web.response.PostDetailResponse;
 import com.xuan.life.content.web.response.PostInteractionResponse;
+import com.xuan.life.content.web.response.PostPollStateResponse;
 import com.xuan.life.content.web.response.PostRepostItemResponse;
 import com.xuan.life.security.model.LifeAuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,7 +45,7 @@ public class PostController {
     }
 
     @PostMapping
-    public ApiResponse<PostCardResponse> create(
+    public ApiResponse<CreatePostResponse> create(
         @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
         HttpServletRequest httpServletRequest,
         @Valid @RequestBody CreatePostRequest request
@@ -97,6 +100,26 @@ public class PostController {
             currentUser != null ? currentUser.getUserId() : null,
             postId
         ));
+    }
+
+    @GetMapping("/{postId}/poll")
+    public ApiResponse<PostPollStateResponse> poll(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
+        @PathVariable("postId") Long postId
+    ) {
+        return ApiResponse.success(postApplicationService.getPostPollState(
+            currentUser != null ? currentUser.getUserId() : null,
+            postId
+        ));
+    }
+
+    @PostMapping("/{postId}/poll/vote")
+    public ApiResponse<PostPollStateResponse> votePoll(
+        @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
+        @PathVariable("postId") Long postId,
+        @Valid @RequestBody VotePostPollRequest request
+    ) {
+        return ApiResponse.success(postApplicationService.votePoll(currentUser.getUserId(), postId, request));
     }
 
     @PostMapping("/{postId}/comments")

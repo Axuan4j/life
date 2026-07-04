@@ -16,6 +16,7 @@ rootProject.name = "life"
 
 include(
     "backend:life-boot",
+    "backend:life-admin-boot",
     "backend:life-common",
     "backend:life-security",
     "backend:life-infra",

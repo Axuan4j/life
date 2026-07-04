@@ -18,7 +18,7 @@ public class PostComment {
     private Long parentCommentId;
     private Long replyToUserId;
     private String contentText;
-    private String status;
+    private Integer status;
     private String clientIp;
     private String ipRegion;
     @TableField(fill = FieldFill.INSERT)
@@ -74,11 +74,11 @@ public class PostComment {
         this.contentText = contentText;
     }
 
-    public String getStatus() {
+    public Integer getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(Integer status) {
         this.status = status;
     }
 

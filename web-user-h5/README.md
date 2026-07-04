@@ -15,5 +15,7 @@
 - 构建：
   - `pnpm build`
 - 说明：
-  - 本地默认请求 `http://localhost:8080`
-  - 生产发布时由发布脚本注入 `VITE_API_BASE_URL`
+  - 本地默认通过 Vite 的 `/api` 代理转发到“本机局域网 IP:18080”，优先避开本机 SSH/隧道对 `127.0.0.1:18080` 的占用
+  - 如果本地用户端后端不在 `18080`，可先设置 `VITE_DEV_API_TARGET`
+  - 生产默认走站点同源 `/api`
+  - 只有特殊场景才需要显式注入 `VITE_API_BASE_URL`

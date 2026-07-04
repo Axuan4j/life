@@ -15,7 +15,7 @@ public interface PostCommentMapper extends BaseMapper<PostComment> {
         "<script>",
         "SELECT * FROM post_comment",
         "WHERE post_id = #{postId}",
-        "AND status = 'VISIBLE'",
+        "AND status = 1",
         "ORDER BY created_at ASC, id ASC",
         "</script>"
     })

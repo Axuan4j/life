@@ -110,7 +110,7 @@ public class UserProfileApplicationService {
     private long countPublishedPosts(Long userId) {
         // 这里用 JdbcTemplate 直接做聚合统计，避免 user/content 模块互相依赖造成循环编译。
         Long count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 'PUBLISHED' AND visibility = 'PUBLIC'",
+            "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 1 AND review_status = 1 AND visibility = 'PUBLIC'",
             Long.class,
             userId
         );
@@ -119,7 +119,7 @@ public class UserProfileApplicationService {
 
     private long countAllPublishedPosts(Long userId) {
         Long count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 'PUBLISHED'",
+            "SELECT COUNT(1) FROM post WHERE author_id = ? AND status = 1",
             Long.class,
             userId
         );

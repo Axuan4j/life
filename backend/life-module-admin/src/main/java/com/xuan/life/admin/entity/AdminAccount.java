@@ -17,6 +17,7 @@ public class AdminAccount {
     private String displayName;
     private String passwordHash;
     private Integer status;
+    private Long tokenVersion;
     private String lastLoginIp;
     private String lastLoginRegion;
     private LocalDateTime lastLoginAt;
@@ -63,6 +64,14 @@ public class AdminAccount {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public Long getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(Long tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 
     public String getLastLoginIp() {

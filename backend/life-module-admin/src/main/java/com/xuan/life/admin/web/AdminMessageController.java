@@ -32,7 +32,7 @@ public class AdminMessageController {
     }
 
     @PostMapping("/broadcast")
-    @PreAuthorize("hasAuthority('" + AdminPermissionCodes.MESSAGE_BROADCAST + "')")
+    @PreAuthorize("hasAuthority('" + AdminPermissionCodes.OPERATION + "')")
     public ApiResponse<Void> broadcast(
         @AuthenticationPrincipal LifeAuthenticatedUser currentUser,
         @Valid @RequestBody AdminBroadcastMessageRequest request

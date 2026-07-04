@@ -6,6 +6,7 @@ SERVICE_NAME="${SERVICE_NAME:-life-app}"
 APP_ROOT="${APP_ROOT:-/opt/life}"
 APP_USER="${APP_USER:-life}"
 APP_GROUP="${APP_GROUP:-life}"
+APP_JAR_NAME="${APP_JAR_NAME:-life-app.jar}"
 CURRENT_LINK="${APP_ROOT}/current"
 RELEASES_DIR="${APP_ROOT}/releases"
 UPLOADS_DIR="${APP_ROOT}/uploads"
@@ -155,7 +156,7 @@ fi
 
 log "Creating release ${release_id}"
 install -d -o "${APP_USER}" -g "${APP_GROUP}" -m 755 "${release_dir}"
-install -o "${APP_USER}" -g "${APP_GROUP}" -m 644 "${UPLOAD_JAR}" "${release_dir}/life-app.jar"
+install -o "${APP_USER}" -g "${APP_GROUP}" -m 644 "${UPLOAD_JAR}" "${release_dir}/${APP_JAR_NAME}"
 
 if [[ "${UPDATE_LIB}" == "yes" ]]; then
   log "Extracting uploaded lib archive"

@@ -26,8 +26,9 @@
 - 管理后台：动态菜单、权限守卫、角色菜单绑定、管理员角色分配
 
 ## 部署约定
-- 后端按 `life-app.jar + lib/*.jar` 的薄包结构发布
-- 生产固定从 `/etc/life/application-prod.yml` 读取外置配置
+- 用户 C 端后端按 `life-app.jar + lib/*.jar` 的薄包结构发布
+- 管理端后端按 `life-admin-app.jar + lib/*.jar` 的薄包结构发布
+- 生产固定从 `/etc/life/application-prod.yml` 和 `/etc/life/application-admin-prod.yml` 读取外置配置
 - 生产日志固定写入 `/opt/life/logs`
 
 ## Feed 设计

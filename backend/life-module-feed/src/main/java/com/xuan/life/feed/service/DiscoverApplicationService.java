@@ -1,11 +1,17 @@
 package com.xuan.life.feed.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xuan.life.common.exception.BusinessException;
 import com.xuan.life.common.exception.ErrorCode;
 import com.xuan.life.content.service.PostApplicationService;
 import com.xuan.life.content.web.response.PostCardResponse;
 import com.xuan.life.feed.config.DiscoverCatalogProperties;
+import com.xuan.life.feed.entity.DiscoverConfigItem;
+import com.xuan.life.feed.mapper.DiscoverConfigItemMapper;
 import com.xuan.life.feed.model.DiscoverCursor;
+import com.xuan.life.feed.model.DiscoverConfigTypes;
 import com.xuan.life.feed.model.DiscoverResultSort;
 import com.xuan.life.feed.model.DiscoverResultType;
 import com.xuan.life.feed.model.FeedSourceType;
@@ -39,19 +45,26 @@ import java.util.stream.Collectors;
 public class DiscoverApplicationService {
 
     private static final int COMPOSITE_SCAN_LIMIT = 200;
+    private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() { };
 
     private final DiscoverCatalogProperties discoverCatalogProperties;
+    private final DiscoverConfigItemMapper discoverConfigItemMapper;
+    private final ObjectMapper objectMapper;
     private final PostApplicationService postApplicationService;
     private final UserProfileApplicationService userProfileApplicationService;
     private final FollowApplicationService followApplicationService;
 
     public DiscoverApplicationService(
         DiscoverCatalogProperties discoverCatalogProperties,
+        DiscoverConfigItemMapper discoverConfigItemMapper,
+        ObjectMapper objectMapper,
         PostApplicationService postApplicationService,
         UserProfileApplicationService userProfileApplicationService,
         FollowApplicationService followApplicationService
     ) {
         this.discoverCatalogProperties = discoverCatalogProperties;
+        this.discoverConfigItemMapper = discoverConfigItemMapper;
+        this.objectMapper = objectMapper;
         this.postApplicationService = postApplicationService;
         this.userProfileApplicationService = userProfileApplicationService;
         this.followApplicationService = followApplicationService;
@@ -91,42 +104,38 @@ public class DiscoverApplicationService {
     }
 
     private List<DiscoverHotKeywordItem> buildHotKeywords() {
-        List<DiscoverCatalogProperties.HotKeyword> configuredHotKeywords = discoverCatalogProperties.getHotKeywords();
-        for (int index = 0; index < configuredHotKeywords.size(); index++) {
-            DiscoverCatalogProperties.HotKeyword keyword = configuredHotKeywords.get(index);
-            configuredHotKeywords.set(index, keyword);
-        }
+        List<ResolvedHotKeyword> configuredHotKeywords = resolveHotKeywords();
         return java.util.stream.IntStream.range(0, configuredHotKeywords.size())
             .mapToObj(index -> {
-                DiscoverCatalogProperties.HotKeyword hotKeyword = configuredHotKeywords.get(index);
-                long matchedCount = postApplicationService.countVisiblePostsByKeywords(resolveMatchKeywords(hotKeyword.getMatchKeywords(), hotKeyword.getKeyword()));
+                ResolvedHotKeyword hotKeyword = configuredHotKeywords.get(index);
+                long matchedCount = postApplicationService.countVisiblePostsByKeywords(hotKeyword.matchKeywords());
                 return new DiscoverHotKeywordItem(
                     index + 1,
-                    hotKeyword.getKeyword(),
-                    defaultIfBlank(hotKeyword.getTitle(), hotKeyword.getKeyword()),
-                    defaultIfBlank(hotKeyword.getTrendLabel(), "热"),
-                    defaultIfBlank(hotKeyword.getHeatLabel(), formatCount(matchedCount) + " 热度")
+                    hotKeyword.keyword(),
+                    defaultIfBlank(hotKeyword.title(), hotKeyword.keyword()),
+                    defaultIfBlank(hotKeyword.trendLabel(), "热"),
+                    defaultIfBlank(hotKeyword.heatLabel(), formatCount(matchedCount) + " 热度")
                 );
             })
             .toList();
     }
 
     private List<DiscoverTopicSquareItem> buildTopicSquare() {
-        return discoverCatalogProperties.getTopics().stream()
+        return resolveTopics().stream()
             .map(topic -> new DiscoverTopicSquareItem(
-                topic.getTopicKey(),
-                topic.getTitle(),
-                defaultIfBlank(topic.getSummary(), "发现更多你可能感兴趣的内容"),
-                postApplicationService.countVisiblePostsByKeywords(resolveMatchKeywords(topic.getMatchKeywords(), topic.getTitle())),
-                defaultIfBlank(topic.getCoverStyle(), "warm")
+                topic.topicKey(),
+                topic.title(),
+                defaultIfBlank(topic.summary(), "发现更多你可能感兴趣的内容"),
+                postApplicationService.countVisiblePostsByKeywords(topic.matchKeywords()),
+                defaultIfBlank(topic.coverStyle(), "warm")
             ))
             .toList();
     }
 
     private List<DiscoverRecommendedAuthorItem> buildRecommendedAuthors(Long viewerUserId) {
-        List<DiscoverCatalogProperties.RecommendedAuthor> configuredAuthors = discoverCatalogProperties.getRecommendedAuthors();
+        List<ResolvedRecommendedAuthor> configuredAuthors = resolveRecommendedAuthors();
         List<String> configuredUsernames = configuredAuthors.stream()
-            .map(DiscoverCatalogProperties.RecommendedAuthor::getUsername)
+            .map(ResolvedRecommendedAuthor::username)
             .filter(StringUtils::hasText)
             .toList();
         Map<String, UserAccount> accountMap = userProfileApplicationService.listAccountsByUsernames(configuredUsernames).stream()
@@ -137,7 +146,7 @@ public class DiscoverApplicationService {
 
         return configuredAuthors.stream()
             .map(configuredAuthor -> {
-                UserAccount account = accountMap.get(configuredAuthor.getUsername());
+                UserAccount account = accountMap.get(configuredAuthor.username());
                 if (account == null || Objects.equals(account.getId(), viewerUserId)) {
                     return null;
                 }
@@ -153,7 +162,7 @@ public class DiscoverApplicationService {
                     profile.bio(),
                     profile.followerCount(),
                     followApplicationService.isFollowing(viewerUserId, profile.userId()),
-                    defaultIfBlank(configuredAuthor.getReason(), "推荐关注")
+                    defaultIfBlank(configuredAuthor.reason(), "推荐关注")
                 );
             })
             .filter(Objects::nonNull)
@@ -258,21 +267,21 @@ public class DiscoverApplicationService {
         String keyword
     ) {
         if (resultType == DiscoverResultType.TOPIC) {
-            DiscoverCatalogProperties.Topic topic = discoverCatalogProperties.getTopics().stream()
-                .filter(item -> item.getTopicKey() != null && item.getTopicKey().equals(topicKey))
+            ResolvedTopic topic = resolveTopics().stream()
+                .filter(item -> item.topicKey() != null && item.topicKey().equals(topicKey))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "话题不存在"));
             return new DiscoverQueryDescriptor(
-                topic.getTopicKey(),
-                "#" + topic.getTitle(),
-                defaultIfBlank(topic.getSummary(), "发现更多相关内容"),
-                resolveMatchKeywords(topic.getMatchKeywords(), topic.getTitle())
+                topic.topicKey(),
+                "#" + topic.title(),
+                defaultIfBlank(topic.summary(), "发现更多相关内容"),
+                topic.matchKeywords()
             );
         }
 
         String normalizedKeyword = normalizeKeyword(keyword);
-        DiscoverCatalogProperties.HotKeyword configuredKeyword = discoverCatalogProperties.getHotKeywords().stream()
-            .filter(item -> normalizedKeyword.equalsIgnoreCase(item.getKeyword()))
+        ResolvedHotKeyword configuredKeyword = resolveHotKeywords().stream()
+            .filter(item -> normalizedKeyword.equalsIgnoreCase(item.keyword()))
             .findFirst()
             .orElse(null);
         return new DiscoverQueryDescriptor(
@@ -280,9 +289,91 @@ public class DiscoverApplicationService {
             normalizedKeyword,
             "正在为你整理相关讨论",
             configuredKeyword != null
-                ? resolveMatchKeywords(configuredKeyword.getMatchKeywords(), configuredKeyword.getKeyword())
+                ? configuredKeyword.matchKeywords()
                 : List.of(normalizedKeyword)
         );
+    }
+
+    private List<ResolvedHotKeyword> resolveHotKeywords() {
+        List<DiscoverConfigItem> configuredItems = listEnabledConfigItems(DiscoverConfigTypes.HOT_KEYWORD);
+        if (!configuredItems.isEmpty()) {
+            return configuredItems.stream()
+                .map(item -> new ResolvedHotKeyword(
+                    defaultIfBlank(item.getTitle(), item.getItemKey()),
+                    defaultIfBlank(item.getTitle(), item.getItemKey()),
+                    defaultIfBlank(item.getSubtitle(), "热"),
+                    defaultIfBlank(item.getDescription(), ""),
+                    resolveMatchKeywords(readKeywordList(item.getExtraJson()), item.getTitle())
+                ))
+                .toList();
+        }
+        return discoverCatalogProperties.getHotKeywords().stream()
+            .map(item -> new ResolvedHotKeyword(
+                item.getKeyword(),
+                item.getTitle(),
+                item.getTrendLabel(),
+                item.getHeatLabel(),
+                resolveMatchKeywords(item.getMatchKeywords(), item.getKeyword())
+            ))
+            .toList();
+    }
+
+    private List<ResolvedTopic> resolveTopics() {
+        List<DiscoverConfigItem> configuredItems = listEnabledConfigItems(DiscoverConfigTypes.TOPIC);
+        if (!configuredItems.isEmpty()) {
+            return configuredItems.stream()
+                .map(item -> new ResolvedTopic(
+                    item.getItemKey(),
+                    defaultIfBlank(item.getTitle(), item.getItemKey()),
+                    defaultIfBlank(item.getSubtitle(), ""),
+                    defaultIfBlank(item.getDescription(), "warm"),
+                    resolveMatchKeywords(readKeywordList(item.getExtraJson()), item.getTitle())
+                ))
+                .toList();
+        }
+        return discoverCatalogProperties.getTopics().stream()
+            .map(item -> new ResolvedTopic(
+                item.getTopicKey(),
+                item.getTitle(),
+                item.getSummary(),
+                item.getCoverStyle(),
+                resolveMatchKeywords(item.getMatchKeywords(), item.getTitle())
+            ))
+            .toList();
+    }
+
+    private List<ResolvedRecommendedAuthor> resolveRecommendedAuthors() {
+        List<DiscoverConfigItem> configuredItems = listEnabledConfigItems(DiscoverConfigTypes.RECOMMENDED_AUTHOR);
+        if (!configuredItems.isEmpty()) {
+            return configuredItems.stream()
+                .map(item -> new ResolvedRecommendedAuthor(
+                    item.getItemKey(),
+                    defaultIfBlank(item.getSubtitle(), item.getDescription())
+                ))
+                .toList();
+        }
+        return discoverCatalogProperties.getRecommendedAuthors().stream()
+            .map(item -> new ResolvedRecommendedAuthor(item.getUsername(), item.getReason()))
+            .toList();
+    }
+
+    private List<DiscoverConfigItem> listEnabledConfigItems(String configType) {
+        return discoverConfigItemMapper.selectList(new LambdaQueryWrapper<DiscoverConfigItem>()
+            .eq(DiscoverConfigItem::getConfigType, configType)
+            .eq(DiscoverConfigItem::getStatus, 1)
+            .orderByAsc(DiscoverConfigItem::getSortOrder)
+            .orderByAsc(DiscoverConfigItem::getId));
+    }
+
+    private List<String> readKeywordList(String extraJson) {
+        if (!StringUtils.hasText(extraJson)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(extraJson, STRING_LIST_TYPE);
+        } catch (Exception ignored) {
+            return List.of();
+        }
     }
 
     private List<String> resolveMatchKeywords(List<String> configuredKeywords, String fallbackKeyword) {
@@ -340,6 +431,30 @@ public class DiscoverApplicationService {
     private record ScoredPost(
         long score,
         PostCardResponse post
+    ) {
+    }
+
+    private record ResolvedHotKeyword(
+        String keyword,
+        String title,
+        String trendLabel,
+        String heatLabel,
+        List<String> matchKeywords
+    ) {
+    }
+
+    private record ResolvedTopic(
+        String topicKey,
+        String title,
+        String summary,
+        String coverStyle,
+        List<String> matchKeywords
+    ) {
+    }
+
+    private record ResolvedRecommendedAuthor(
+        String username,
+        String reason
     ) {
     }
 }

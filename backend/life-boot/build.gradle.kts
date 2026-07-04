@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":backend:life-common"))
     implementation(project(":backend:life-security"))
     implementation(project(":backend:life-infra"))
-    implementation(project(":backend:life-module-admin"))
     implementation(project(":backend:life-module-user"))
     implementation(project(":backend:life-module-content"))
     implementation(project(":backend:life-module-message"))

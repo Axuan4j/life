@@ -17,10 +17,11 @@ public class LifeAuthenticatedUser implements UserDetails {
     private final String password;
     private final LifeRole role;
     private final boolean enabled;
+    private final long tokenVersion;
     private final List<String> extraAuthorities;
 
     public LifeAuthenticatedUser(Long userId, String username, String password, LifeRole role, boolean enabled) {
-        this(userId, username, password, role, enabled, List.of());
+        this(userId, username, password, role, enabled, 0L, List.of());
     }
 
     public LifeAuthenticatedUser(
@@ -29,6 +30,7 @@ public class LifeAuthenticatedUser implements UserDetails {
         String password,
         LifeRole role,
         boolean enabled,
+        long tokenVersion,
         List<String> extraAuthorities
     ) {
         this.userId = userId;
@@ -36,6 +38,7 @@ public class LifeAuthenticatedUser implements UserDetails {
         this.password = password;
         this.role = role;
         this.enabled = enabled;
+        this.tokenVersion = tokenVersion;
         this.extraAuthorities = extraAuthorities == null ? List.of() : List.copyOf(extraAuthorities);
     }
 
@@ -49,6 +52,10 @@ public class LifeAuthenticatedUser implements UserDetails {
 
     public List<String> getExtraAuthorities() {
         return extraAuthorities;
+    }
+
+    public long getTokenVersion() {
+        return tokenVersion;
     }
 
     @Override

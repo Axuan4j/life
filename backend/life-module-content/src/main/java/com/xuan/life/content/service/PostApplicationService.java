@@ -8,17 +8,28 @@ import com.xuan.life.content.entity.Post;
 import com.xuan.life.content.entity.PostComment;
 import com.xuan.life.content.entity.PostLike;
 import com.xuan.life.content.entity.PostMedia;
+import com.xuan.life.content.entity.PostPollVote;
 import com.xuan.life.content.entity.PostRepost;
 import com.xuan.life.content.entity.PostStat;
+import com.xuan.life.content.model.CommentStatusCodes;
+import com.xuan.life.content.model.CreatePostModerationResultCodes;
+import com.xuan.life.content.model.PostReviewStatusCodes;
+import com.xuan.life.content.model.PostStatusCodes;
+import com.xuan.life.content.model.SensitiveActionCodes;
+import com.xuan.life.content.model.SensitiveHitActionResultCodes;
+import com.xuan.life.content.model.SensitiveTargetTypes;
 import com.xuan.life.content.mapper.PostCommentMapper;
 import com.xuan.life.content.mapper.PostLikeMapper;
 import com.xuan.life.content.mapper.PostMapper;
 import com.xuan.life.content.mapper.PostMediaMapper;
+import com.xuan.life.content.mapper.PostPollVoteMapper;
 import com.xuan.life.content.mapper.PostRepostMapper;
 import com.xuan.life.content.mapper.PostStatMapper;
 import com.xuan.life.content.web.request.CreatePostCommentRequest;
 import com.xuan.life.content.web.request.CreatePostRequest;
 import com.xuan.life.content.web.request.PostMediaRequest;
+import com.xuan.life.content.web.request.VotePostPollRequest;
+import com.xuan.life.content.web.response.CreatePostResponse;
 import com.xuan.life.content.web.response.PostCardResponse;
 import com.xuan.life.content.web.response.PostCommentReplyResponse;
 import com.xuan.life.content.web.response.PostCommentResponse;
@@ -26,12 +37,16 @@ import com.xuan.life.content.web.response.PostDetailResponse;
 import com.xuan.life.content.web.response.PostInteractionResponse;
 import com.xuan.life.content.web.response.PostLikedUserResponse;
 import com.xuan.life.content.web.response.PostMediaResponse;
+import com.xuan.life.content.web.response.PostPollOptionResponse;
+import com.xuan.life.content.web.response.PostPollStateResponse;
 import com.xuan.life.content.web.response.PostRepostItemResponse;
 import com.xuan.life.infra.ip.IpRegionService;
 import com.xuan.life.message.service.NotificationApplicationService;
 import com.xuan.life.user.entity.UserAccount;
+import com.xuan.life.user.entity.UserGovernanceState;
 import com.xuan.life.user.entity.UserProfile;
 import com.xuan.life.user.mapper.UserAccountMapper;
+import com.xuan.life.user.mapper.UserGovernanceStateMapper;
 import com.xuan.life.user.mapper.UserProfileMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +58,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -54,46 +70,74 @@ public class PostApplicationService {
     private final PostCommentMapper postCommentMapper;
     private final PostLikeMapper postLikeMapper;
     private final PostMediaMapper postMediaMapper;
+    private final PostPollVoteMapper postPollVoteMapper;
     private final PostRepostMapper postRepostMapper;
     private final PostStatMapper postStatMapper;
     private final UserAccountMapper userAccountMapper;
+    private final UserGovernanceStateMapper userGovernanceStateMapper;
     private final UserProfileMapper userProfileMapper;
     private final IpRegionService ipRegionService;
     private final NotificationApplicationService notificationApplicationService;
+    private final SensitiveWordRuntimeService sensitiveWordRuntimeService;
+    private final PostReviewAuditService postReviewAuditService;
 
     public PostApplicationService(
         PostMapper postMapper,
         PostCommentMapper postCommentMapper,
         PostLikeMapper postLikeMapper,
         PostMediaMapper postMediaMapper,
+        PostPollVoteMapper postPollVoteMapper,
         PostRepostMapper postRepostMapper,
         PostStatMapper postStatMapper,
         UserAccountMapper userAccountMapper,
+        UserGovernanceStateMapper userGovernanceStateMapper,
         UserProfileMapper userProfileMapper,
         IpRegionService ipRegionService,
-        NotificationApplicationService notificationApplicationService
+        NotificationApplicationService notificationApplicationService,
+        SensitiveWordRuntimeService sensitiveWordRuntimeService,
+        PostReviewAuditService postReviewAuditService
     ) {
         this.postMapper = postMapper;
         this.postCommentMapper = postCommentMapper;
         this.postLikeMapper = postLikeMapper;
         this.postMediaMapper = postMediaMapper;
+        this.postPollVoteMapper = postPollVoteMapper;
         this.postRepostMapper = postRepostMapper;
         this.postStatMapper = postStatMapper;
         this.userAccountMapper = userAccountMapper;
+        this.userGovernanceStateMapper = userGovernanceStateMapper;
         this.userProfileMapper = userProfileMapper;
         this.ipRegionService = ipRegionService;
         this.notificationApplicationService = notificationApplicationService;
+        this.sensitiveWordRuntimeService = sensitiveWordRuntimeService;
+        this.postReviewAuditService = postReviewAuditService;
     }
 
     @Transactional
-    public PostCardResponse createPost(Long authorId, CreatePostRequest request, String clientIp) {
+    public CreatePostResponse createPost(Long authorId, CreatePostRequest request, String clientIp) {
         validateMediaRequests(request.medias());
+        ensureCanCreatePost(authorId);
+        SensitiveWordRuntimeService.SensitiveScanResult scanResult = sensitiveWordRuntimeService.scanText(request.contentText());
+        PostCreateDecision createDecision = resolvePostCreateDecision(scanResult);
+        if (createDecision.reject()) {
+            sensitiveWordRuntimeService.recordHitInNewTransaction(
+                SensitiveTargetTypes.POST,
+                null,
+                authorId,
+                scanResult,
+                SensitiveHitActionResultCodes.POST_REJECTED,
+                request.contentText()
+            );
+            throw new BusinessException(ErrorCode.BAD_REQUEST, createDecision.message());
+        }
 
         Post post = new Post();
         post.setAuthorId(authorId);
         post.setContentText(request.contentText());
         post.setVisibility(normalizeVisibility(request.visibility()));
-        post.setStatus("PUBLISHED");
+        post.setStatus(PostStatusCodes.PUBLISHED);
+        post.setReviewStatus(createDecision.reviewStatus());
+        post.setReviewReason(createDecision.reviewReason());
         post.setClientIp(clientIp);
         post.setIpRegion(ipRegionService.resolveRegion(clientIp));
         post.setPublishedAt(LocalDateTime.now());
@@ -111,6 +155,10 @@ public class PostApplicationService {
             }
         }
 
+        if (createDecision.reviewPending()) {
+            postReviewAuditService.recordSystemReview(post.getId(), post.getReviewStatus(), post.getReviewReason());
+        }
+
         PostStat stat = new PostStat();
         stat.setPostId(post.getId());
         stat.setLikeCount(0L);
@@ -124,17 +172,29 @@ public class PostApplicationService {
             .sorted(Comparator.comparing(PostMediaRequest::sortOrder))
             .map(media -> new PostMediaResponse(media.mediaType(), media.mediaUrl(), media.sortOrder()))
             .toList();
-        return mapToCard(post, mediaResponses, stat, account, profile);
+        PostCardResponse postCard = mapToCard(post, mediaResponses, stat, account, profile);
+        if (scanResult.hasMatches()) {
+            sensitiveWordRuntimeService.recordHitAfterCommit(
+                SensitiveTargetTypes.POST,
+                post.getId(),
+                authorId,
+                scanResult,
+                createDecision.hitActionResult(),
+                request.contentText()
+            );
+        }
+        return new CreatePostResponse(createDecision.moderationResult(), createDecision.message(), postCard);
     }
 
     public List<PostCardResponse> listUserPosts(Long viewerUserId, Long userId, int pageNo, int pageSize) {
         Page<Post> page = new Page<>(pageNo, pageSize);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-            .eq(Post::getStatus, "PUBLISHED")
+            .eq(Post::getStatus, PostStatusCodes.PUBLISHED)
             .eq(Post::getAuthorId, userId)
             .orderByDesc(Post::getPublishedAt)
             .orderByDesc(Post::getId);
         if (!userId.equals(viewerUserId)) {
+            wrapper.eq(Post::getReviewStatus, PostReviewStatusCodes.APPROVED);
             wrapper.eq(Post::getVisibility, "PUBLIC");
         }
         List<Post> posts = postMapper.selectPage(page, wrapper).getRecords();
@@ -145,7 +205,16 @@ public class PostApplicationService {
         Post post = requireAccessiblePost(currentUserId, postId);
         PostCardResponse card = mapToCards(List.of(post)).stream().findFirst()
             .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在"));
-        return new PostDetailResponse(card, buildInteractionResponse(currentUserId, postId));
+        return new PostDetailResponse(
+            card,
+            buildInteractionResponse(currentUserId, postId),
+            buildPollState(currentUserId, post)
+        );
+    }
+
+    public PostPollStateResponse getPostPollState(Long currentUserId, Long postId) {
+        Post post = requireAccessiblePost(currentUserId, postId);
+        return requirePollState(currentUserId, post);
     }
 
     public List<PostCommentResponse> listPostComments(Long currentUserId, Long postId) {
@@ -306,7 +375,9 @@ public class PostApplicationService {
             repostedPost.setAuthorId(currentUserId);
             repostedPost.setContentText(repostContent);
             repostedPost.setVisibility("PUBLIC");
-            repostedPost.setStatus("PUBLISHED");
+            repostedPost.setStatus(PostStatusCodes.PUBLISHED);
+            repostedPost.setReviewStatus(PostReviewStatusCodes.APPROVED);
+            repostedPost.setReviewReason("");
             repostedPost.setClientIp(sourcePost.getClientIp());
             repostedPost.setIpRegion(sourcePost.getIpRegion());
             repostedPost.setPublishedAt(LocalDateTime.now());
@@ -340,14 +411,54 @@ public class PostApplicationService {
     }
 
     @Transactional
+    public PostPollStateResponse votePoll(Long currentUserId, Long postId, VotePostPollRequest request) {
+        Post post = requireAccessiblePost(currentUserId, postId);
+        PostPollParser.ParsedPostPoll poll = requireParsedPoll(post);
+        int optionIndex = request.optionIndex();
+        if (optionIndex < 0 || optionIndex >= poll.options().size()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "投票选项不存在");
+        }
+
+        PostPollVote existingVote = postPollVoteMapper.selectOne(new LambdaQueryWrapper<PostPollVote>()
+            .eq(PostPollVote::getPostId, postId)
+            .eq(PostPollVote::getUserId, currentUserId)
+            .last("LIMIT 1"));
+        if (existingVote == null) {
+            PostPollVote vote = new PostPollVote();
+            vote.setPostId(postId);
+            vote.setUserId(currentUserId);
+            vote.setOptionIndex(optionIndex);
+            postPollVoteMapper.insert(vote);
+        } else if (!Integer.valueOf(optionIndex).equals(existingVote.getOptionIndex())) {
+            existingVote.setOptionIndex(optionIndex);
+            postPollVoteMapper.updateById(existingVote);
+        }
+
+        return buildPollState(currentUserId, post, poll);
+    }
+
+    @Transactional
     public void createComment(Long currentUserId, Long postId, CreatePostCommentRequest request, String clientIp) {
         Post sourcePost = requireAccessiblePost(currentUserId, postId);
+        ensureCanCreateComment(currentUserId);
+        SensitiveWordRuntimeService.SensitiveScanResult scanResult = sensitiveWordRuntimeService.scanText(request.contentText());
+        if (scanResult.hasMatches()) {
+            sensitiveWordRuntimeService.recordHitInNewTransaction(
+                SensitiveTargetTypes.COMMENT,
+                null,
+                currentUserId,
+                scanResult,
+                SensitiveHitActionResultCodes.COMMENT_REJECTED,
+                request.contentText()
+            );
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "评论包含不合规表达，请调整后再发送");
+        }
 
         Long parentCommentId = request.parentCommentId();
         Long replyToUserId = request.replyToUserId();
         if (parentCommentId != null) {
             PostComment parentComment = postCommentMapper.selectById(parentCommentId);
-            if (parentComment == null || !postId.equals(parentComment.getPostId()) || !"VISIBLE".equals(parentComment.getStatus())) {
+            if (parentComment == null || !postId.equals(parentComment.getPostId()) || !Integer.valueOf(CommentStatusCodes.VISIBLE).equals(parentComment.getStatus())) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "回复目标不存在");
             }
             // 评论区只允许两级结构：如果回复的是子评论，也统一挂在其顶级父评论下，避免无限楼中楼。
@@ -367,7 +478,7 @@ public class PostApplicationService {
         comment.setParentCommentId(parentCommentId);
         comment.setReplyToUserId(replyToUserId);
         comment.setContentText(request.contentText().trim());
-        comment.setStatus("VISIBLE");
+        comment.setStatus(CommentStatusCodes.VISIBLE);
         comment.setClientIp(clientIp);
         comment.setIpRegion(ipRegionService.resolveRegion(clientIp));
         postCommentMapper.insert(comment);
@@ -386,11 +497,37 @@ public class PostApplicationService {
         );
     }
 
+    private void ensureCanCreatePost(Long userId) {
+        UserGovernanceState governanceState = userGovernanceStateMapper.selectById(userId);
+        if (governanceState == null) {
+            return;
+        }
+        if (governanceState.getPostDisabled() != null && governanceState.getPostDisabled() == 1) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号已被限制发帖");
+        }
+        if (governanceState.getMuteUntil() != null && governanceState.getMuteUntil().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号禁言中，暂时不能发帖");
+        }
+    }
+
+    private void ensureCanCreateComment(Long userId) {
+        UserGovernanceState governanceState = userGovernanceStateMapper.selectById(userId);
+        if (governanceState == null) {
+            return;
+        }
+        if (governanceState.getCommentDisabled() != null && governanceState.getCommentDisabled() == 1) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号已被限制评论");
+        }
+        if (governanceState.getMuteUntil() != null && governanceState.getMuteUntil().isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号禁言中，解除时间 " + governanceState.getMuteUntil());
+        }
+    }
+
     @Transactional
     public void deleteComment(Long currentUserId, Long postId, Long commentId) {
         requireAccessiblePost(currentUserId, postId);
         PostComment targetComment = postCommentMapper.selectById(commentId);
-        if (targetComment == null || !postId.equals(targetComment.getPostId()) || !"VISIBLE".equals(targetComment.getStatus())) {
+        if (targetComment == null || !postId.equals(targetComment.getPostId()) || !Integer.valueOf(CommentStatusCodes.VISIBLE).equals(targetComment.getStatus())) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "评论不存在");
         }
         if (!currentUserId.equals(targetComment.getUserId())) {
@@ -578,7 +715,13 @@ public class PostApplicationService {
 
     private Post requireAccessiblePost(Long currentUserId, Long postId) {
         Post post = postMapper.selectById(postId);
-        if (post == null || !"PUBLISHED".equals(post.getStatus())) {
+        if (post == null || !Integer.valueOf(PostStatusCodes.PUBLISHED).equals(post.getStatus())) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在");
+        }
+        if (!Integer.valueOf(PostReviewStatusCodes.APPROVED).equals(post.getReviewStatus())) {
+            if (currentUserId != null && currentUserId.equals(post.getAuthorId())) {
+                return post;
+            }
             throw new BusinessException(ErrorCode.NOT_FOUND, "帖子不存在");
         }
         if ("PUBLIC".equals(post.getVisibility())) {
@@ -607,6 +750,66 @@ public class PostApplicationService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "帖子统计不存在");
         }
         return stat;
+    }
+
+    private PostPollStateResponse requirePollState(Long currentUserId, Post post) {
+        PostPollStateResponse pollState = buildPollState(currentUserId, post);
+        if (pollState == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "这条内容没有投票");
+        }
+        return pollState;
+    }
+
+    private PostPollStateResponse buildPollState(Long currentUserId, Post post) {
+        PostPollParser.ParsedPostPoll poll = PostPollParser.parse(post.getContentText());
+        if (poll == null) {
+            return null;
+        }
+        return buildPollState(currentUserId, post, poll);
+    }
+
+    private PostPollStateResponse buildPollState(Long currentUserId, Post post, PostPollParser.ParsedPostPoll poll) {
+        Map<Integer, Long> voteCountMap = postPollVoteMapper.countVotesByPostId(post.getId()).stream()
+            .collect(Collectors.toMap(
+                PostPollVoteMapper.PostPollOptionCountRow::getOptionIndex,
+                row -> row.getVoteCount() != null ? row.getVoteCount() : 0L
+            ));
+        long totalVotes = voteCountMap.values().stream().mapToLong(Long::longValue).sum();
+
+        PostPollVote currentVote = currentUserId == null ? null : postPollVoteMapper.selectOne(new LambdaQueryWrapper<PostPollVote>()
+            .eq(PostPollVote::getPostId, post.getId())
+            .eq(PostPollVote::getUserId, currentUserId)
+            .last("LIMIT 1"));
+        Integer currentOptionIndex = currentVote != null ? currentVote.getOptionIndex() : null;
+
+        List<PostPollOptionResponse> options = new ArrayList<>(poll.options().size());
+        for (int index = 0; index < poll.options().size(); index++) {
+            long voteCount = voteCountMap.getOrDefault(index, 0L);
+            int votePercent = totalVotes == 0 ? 0 : (int) Math.round(voteCount * 100.0 / totalVotes);
+            options.add(new PostPollOptionResponse(
+                index,
+                poll.options().get(index),
+                voteCount,
+                votePercent,
+                currentOptionIndex != null && currentOptionIndex == index
+            ));
+        }
+
+        return new PostPollStateResponse(
+            poll.question(),
+            options,
+            totalVotes,
+            currentOptionIndex != null,
+            currentOptionIndex
+        );
+    }
+
+    private PostPollParser.ParsedPostPoll requireParsedPoll(Post post) {
+        PostPollParser.ParsedPostPoll poll = PostPollParser.parse(post.getContentText());
+        if (poll == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "这条内容没有投票");
+        }
+        return poll;
     }
 
     private PostInteractionResponse buildInteractionResponse(Long currentUserId, Long postId) {
@@ -651,5 +854,59 @@ public class PostApplicationService {
             ? sourceAuthorProfile.getNickname()
             : (sourceAuthorAccount != null ? sourceAuthorAccount.getUsername() : "原作者");
         return "转发 @" + sourceAuthorName + "：\n" + sourcePost.getContentText();
+    }
+
+    private PostCreateDecision resolvePostCreateDecision(SensitiveWordRuntimeService.SensitiveScanResult scanResult) {
+        if (scanResult == null || !scanResult.hasMatches()) {
+            return new PostCreateDecision(
+                CreatePostModerationResultCodes.PUBLISHED,
+                "发布成功",
+                PostReviewStatusCodes.APPROVED,
+                "",
+                null,
+                false
+            );
+        }
+        if (Objects.equals(scanResult.highestActionType(), SensitiveActionCodes.REJECT)) {
+            return new PostCreateDecision(
+                CreatePostModerationResultCodes.PUBLISHED,
+                "内容包含不合规表达，请调整后再发布",
+                PostReviewStatusCodes.REJECTED,
+                "",
+                SensitiveHitActionResultCodes.POST_REJECTED,
+                true
+            );
+        }
+        if (Objects.equals(scanResult.highestActionType(), SensitiveActionCodes.REVIEW)) {
+            return new PostCreateDecision(
+                CreatePostModerationResultCodes.REVIEW_PENDING,
+                "内容已提交，审核通过后展示",
+                PostReviewStatusCodes.PENDING,
+                "敏感词命中，待人工审核",
+                SensitiveHitActionResultCodes.REVIEW_PENDING,
+                false
+            );
+        }
+        return new PostCreateDecision(
+            CreatePostModerationResultCodes.WARN_PASSED,
+            "内容已发布，请注意社区规范",
+            PostReviewStatusCodes.APPROVED,
+            "",
+            SensitiveHitActionResultCodes.WARN_PASSED,
+            false
+        );
+    }
+
+    private record PostCreateDecision(
+        String moderationResult,
+        String message,
+        Integer reviewStatus,
+        String reviewReason,
+        String hitActionResult,
+        boolean reject
+    ) {
+        private boolean reviewPending() {
+            return Objects.equals(reviewStatus, PostReviewStatusCodes.PENDING);
+        }
     }
 }

@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { feedApi, postApi, type CreatePostRequest, type EntityId } from '../services/api';
+import { feedApi, postApi, type CreatePostRequest, type CreatePostResponse, type EntityId } from '../services/api';
 import { mapFeedItem, mapPostCardToFeedPost, type FeedItemViewModel } from '../services/view-models';
 
 export interface FeedPost {
@@ -54,12 +54,15 @@ export const useFeedStore = defineStore('feed', () => {
     hasMore.value = page.hasMore;
   }
 
-  async function publishPost(payload: CreatePostRequest) {
+  async function publishPost(payload: CreatePostRequest): Promise<CreatePostResponse> {
     const created = await postApi.create(payload);
-    items.value.unshift({
-      sourceType: 'FOLLOWING',
-      post: mapPostCardToFeedPost(created, 'FOLLOWING'),
-    });
+    if (created.post && created.moderationResult !== 'REVIEW_PENDING') {
+      items.value.unshift({
+        sourceType: 'FOLLOWING',
+        post: mapPostCardToFeedPost(created.post, 'FOLLOWING'),
+      });
+    }
+    return created;
   }
 
   async function toggleLike(postId: EntityId) {

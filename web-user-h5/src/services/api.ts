@@ -123,9 +123,26 @@ export interface PostRepostItemResponse {
   createdAt: string;
 }
 
+export interface PostPollOptionResponse {
+  optionIndex: number;
+  optionText: string;
+  voteCount: number;
+  votePercent: number;
+  selectedByCurrentUser: boolean;
+}
+
+export interface PostPollStateResponse {
+  question: string;
+  options: PostPollOptionResponse[];
+  totalVotes: number;
+  votedByCurrentUser: boolean;
+  currentOptionIndex: number | null;
+}
+
 export interface PostDetailResponse {
   post: PostCardResponse;
   interaction: PostInteractionResponse;
+  poll?: PostPollStateResponse | null;
 }
 
 export interface FeedItemResponse {
@@ -144,6 +161,19 @@ export interface UserProfileResponse {
   followingCount: number;
   followerCount: number;
   likedCount: number;
+}
+
+export interface UserCheckInStatusResponse {
+  checkedInToday: boolean;
+  rewardGranted: boolean;
+  rewardPoints: number;
+  totalPoints: number;
+  currentYear: number;
+  currentMonth: number;
+  todayDayOfMonth: number;
+  daysInMonth: number;
+  signedCount: number;
+  signedDays: number[];
 }
 
 export interface FollowStatusResponse {
@@ -233,6 +263,14 @@ export interface CreatePostRequest {
   }>;
 }
 
+export type CreatePostModerationResult = 'PUBLISHED' | 'WARN_PASSED' | 'REVIEW_PENDING';
+
+export interface CreatePostResponse {
+  moderationResult: CreatePostModerationResult;
+  message: string;
+  post: PostCardResponse | null;
+}
+
 function unwrapResponse<T>(response: { data: ApiResponse<T> }) {
   return response.data.data;
 }
@@ -266,6 +304,12 @@ export const userApi = {
   async getMe() {
     return unwrapResponse(await http.get<ApiResponse<UserProfileResponse>>('/api/users/me'));
   },
+  async getCheckInStatus() {
+    return unwrapResponse(await http.get<ApiResponse<UserCheckInStatusResponse>>('/api/users/me/check-in'));
+  },
+  async checkIn() {
+    return unwrapResponse(await http.post<ApiResponse<UserCheckInStatusResponse>>('/api/users/me/check-in'));
+  },
   async getProfile(userId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<UserProfileResponse>>(`/api/users/${userId}/profile`));
   },
@@ -273,7 +317,7 @@ export const userApi = {
 
 export const postApi = {
   async create(payload: CreatePostRequest) {
-    return unwrapResponse(await http.post<ApiResponse<PostCardResponse>>('/api/posts', payload));
+    return unwrapResponse(await http.post<ApiResponse<CreatePostResponse>>('/api/posts', payload));
   },
   async getDetail(postId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<PostDetailResponse>>(`/api/posts/${postId}`));
@@ -283,6 +327,12 @@ export const postApi = {
   },
   async getReposts(postId: EntityId) {
     return unwrapResponse(await http.get<ApiResponse<PostRepostItemResponse[]>>(`/api/posts/${postId}/reposts`));
+  },
+  async getPoll(postId: EntityId) {
+    return unwrapResponse(await http.get<ApiResponse<PostPollStateResponse>>(`/api/posts/${postId}/poll`));
+  },
+  async votePoll(postId: EntityId, payload: { optionIndex: number }) {
+    return unwrapResponse(await http.post<ApiResponse<PostPollStateResponse>>(`/api/posts/${postId}/poll/vote`, payload));
   },
   async createComment(
     postId: EntityId,

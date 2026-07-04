@@ -4,6 +4,10 @@ import type { RouteRecordRaw } from 'vue-router';
 export const viewRegistry: Record<string, () => Promise<RouteRecordRaw['component']>> = {
   OverviewView: async () => (await import('../views/overview/OverviewView.vue')).default,
   UserListView: async () => (await import('../views/user/UserListView.vue')).default,
+  ContentGovernanceView: async () => (await import('../views/content/ContentGovernanceView.vue')).default,
+  OperationCenterView: async () => (await import('../views/operation/OperationCenterView.vue')).default,
+  AnalyticsView: async () => (await import('../views/analytics/AnalyticsView.vue')).default,
+  SystemManageView: async () => (await import('../views/system/SystemManageView.vue')).default,
   PostListView: async () => (await import('../views/post/PostListView.vue')).default,
   BroadcastManageView: async () => (await import('../views/message/BroadcastManageView.vue')).default,
   MenuManageView: async () => (await import('../views/rbac/MenuManageView.vue')).default,

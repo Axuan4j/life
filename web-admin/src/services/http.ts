@@ -15,7 +15,7 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _skipAuthRefresh?: boolean;
 }
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export const http = axios.create({
   baseURL,
@@ -48,10 +48,10 @@ function buildLoginRedirectPath() {
 function shouldSkipRefresh(config?: RetryableRequestConfig) {
   const requestUrl = config?.url ?? '';
   return Boolean(
-    !config ||
+      !config ||
       config._skipAuthRefresh ||
       requestUrl.includes('/api/admin/auth/login') ||
-      requestUrl.includes('/api/auth/refresh'),
+      requestUrl.includes('/api/admin/auth/refresh'),
   );
 }
 
@@ -84,7 +84,7 @@ async function refreshAccessToken() {
     // 多个请求同时 401 时只发一次 refresh，请求恢复后继续重放原请求，避免刷新风暴。
     refreshTokenPromise = refreshHttp
       .post<ApiResponse<RefreshTokenResponse>>(
-        '/api/auth/refresh',
+        '/api/admin/auth/refresh',
         { refreshToken: authStore.refreshToken },
         {
           headers: {

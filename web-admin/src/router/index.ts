@@ -46,8 +46,9 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAdminAuthStore();
   const permissionStore = useAdminPermissionStore();
+  const isFallbackNotFound = to.name === 'fallback-not-found';
 
-  if (to.meta.public) {
+  if (to.meta.public && !isFallbackNotFound) {
     if (to.name === 'login' && authStore.isAuthenticated) {
       try {
         if (!permissionStore.initialized) {
@@ -70,7 +71,7 @@ router.beforeEach(async (to) => {
   if (!permissionStore.initialized) {
     try {
       await permissionStore.bootstrap(router);
-      if (to.name === 'fallback-not-found' || to.matched.length === 0) {
+      if (isFallbackNotFound || to.matched.length === 0) {
         return { path: to.fullPath, replace: true };
       }
     } catch {

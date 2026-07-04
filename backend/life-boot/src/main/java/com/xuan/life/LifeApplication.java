@@ -10,7 +10,10 @@ public class LifeApplication {
 
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(LifeApplication.class);
-        application.setDefaultProperties(Map.of("spring.profiles.default", "dev"));
+        application.setDefaultProperties(Map.of(
+            "spring.profiles.default", "dev",
+            "spring.application.name", "life-user-app"
+        ));
         application.run(args);
     }
 }

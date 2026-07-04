@@ -55,7 +55,8 @@ public class JwtTokenService {
         Long userId = claims.get("uid", Long.class);
         String username = claims.getSubject();
         String roleCode = claims.get("role", String.class);
-        return new LifeAuthenticatedUser(userId, username, "", LifeRole.fromCode(roleCode), true);
+        Long tokenVersion = claims.get("tv", Long.class);
+        return new LifeAuthenticatedUser(userId, username, "", LifeRole.fromCode(roleCode), true, tokenVersion == null ? 0L : tokenVersion, java.util.List.of());
     }
 
     private String buildToken(LifeAuthenticatedUser user, String tokenType, Instant issuedAt, Instant expiresAt) {
@@ -66,6 +67,7 @@ public class JwtTokenService {
             .expiration(Date.from(expiresAt))
             .claim("uid", user.getUserId())
             .claim("role", user.getRole().name())
+            .claim("tv", user.getTokenVersion())
             .claim("tokenType", tokenType)
             .signWith(signingKey())
             .compact();
@@ -75,6 +77,7 @@ public class JwtTokenService {
         try {
             return Jwts.parser()
                 .verifyWith(signingKey())
+                .requireIssuer(jwtProperties.getIssuer())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

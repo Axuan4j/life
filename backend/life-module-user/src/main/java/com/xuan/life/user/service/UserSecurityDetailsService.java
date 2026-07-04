@@ -8,7 +8,9 @@ import com.xuan.life.security.model.LifeRole;
 import com.xuan.life.security.service.AdditionalAuthorityProvider;
 import com.xuan.life.security.service.LifeAuthenticatedUserLoader;
 import com.xuan.life.user.entity.UserAccount;
+import com.xuan.life.user.entity.UserGovernanceState;
 import com.xuan.life.user.mapper.UserAccountMapper;
+import com.xuan.life.user.mapper.UserGovernanceStateMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,13 +23,16 @@ import java.util.List;
 public class UserSecurityDetailsService implements UserDetailsService, LifeAuthenticatedUserLoader {
 
     private final UserAccountMapper userAccountMapper;
+    private final UserGovernanceStateMapper userGovernanceStateMapper;
     private final ObjectProvider<List<AdditionalAuthorityProvider>> authorityProviders;
 
     public UserSecurityDetailsService(
         UserAccountMapper userAccountMapper,
+        UserGovernanceStateMapper userGovernanceStateMapper,
         ObjectProvider<List<AdditionalAuthorityProvider>> authorityProviders
     ) {
         this.userAccountMapper = userAccountMapper;
+        this.userGovernanceStateMapper = userGovernanceStateMapper;
         this.authorityProviders = authorityProviders;
     }
 
@@ -62,6 +67,7 @@ public class UserSecurityDetailsService implements UserDetailsService, LifeAuthe
         if (account.getStatus() == null || account.getStatus() != 1) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号已被禁用");
         }
+        UserGovernanceState governanceState = userGovernanceStateMapper.selectById(account.getId());
 
         // 这里把平台角色和后台动态权限一起装配进用户上下文，保证后台角色表一旦变更，下次请求即可实时生效。
         List<String> extraAuthorities = new ArrayList<>();
@@ -75,6 +81,7 @@ public class UserSecurityDetailsService implements UserDetailsService, LifeAuthe
             account.getPasswordHash(),
             LifeRole.fromCode(account.getRoleCode()),
             account.getStatus() != null && account.getStatus() == 1,
+            account.getTokenVersion() == null ? 0L : account.getTokenVersion(),
             extraAuthorities
         );
     }

@@ -6,12 +6,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 APP_DIR="${ROOT_DIR}/web-user-h5"
 SITE_NAME="web-user-h5"
-SITE_PORT="9001"
 
 DEPLOY_HOST="${DEPLOY_HOST:-}"
 DEPLOY_USER="${DEPLOY_USER:-root}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
+API_BASE_URL="${API_BASE_URL:-}"
 PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-}"
 BOOTSTRAP_FIRST=0
 
@@ -24,7 +24,8 @@ Options:
   --host <server>          Server host or IP.
   --user <user>            SSH user. Default: root
   --port <port>            SSH port. Default: 22
-  --public-origin <url>    Public site origin. Default: http://<host>:9001
+  --api-base-url <url>     Optional API base URL override. Default: same-origin /api
+  --public-origin <url>    Backward-compatible alias for --api-base-url
   --keep-releases <count>  Keep the newest N releases on the server. Default: 5
   --bootstrap              Run bootstrap-web-server.sh before releasing.
   -h, --help               Show this help message.
@@ -43,6 +44,10 @@ while (($# > 0)); do
       ;;
     --port)
       DEPLOY_PORT="${2:-}"
+      shift 2
+      ;;
+    --api-base-url)
+      API_BASE_URL="${2:-}"
       shift 2
       ;;
     --public-origin)
@@ -75,8 +80,8 @@ if [[ -z "${DEPLOY_HOST}" ]]; then
   exit 1
 fi
 
-if [[ -z "${PUBLIC_ORIGIN}" ]]; then
-  PUBLIC_ORIGIN="http://${DEPLOY_HOST}:${SITE_PORT}"
+if [[ -z "${API_BASE_URL}" && -n "${PUBLIC_ORIGIN}" ]]; then
+  API_BASE_URL="${PUBLIC_ORIGIN}"
 fi
 
 run_bootstrap_if_requested() {
@@ -91,7 +96,12 @@ run_bootstrap_if_requested() {
 
 build_site() {
   echo "==> Building ${SITE_NAME}"
-  CI=true VITE_API_BASE_URL="${PUBLIC_ORIGIN}" pnpm -C "${APP_DIR}" build
+  if [[ -n "${API_BASE_URL}" ]]; then
+    CI=true VITE_API_BASE_URL="${API_BASE_URL}" pnpm -C "${APP_DIR}" build
+    return
+  fi
+
+  CI=true pnpm -C "${APP_DIR}" build
 }
 
 package_site() {

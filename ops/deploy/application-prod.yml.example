@@ -10,7 +10,7 @@ server:
 
 spring:
   application:
-    name: life-app
+    name: life-user-app
   messages:
     encoding: UTF-8
   datasource:
@@ -50,7 +50,7 @@ life:
   security:
     jwt:
       secret: ${LIFE_JWT_SECRET}
-      issuer: life-app
+      issuer: ${LIFE_JWT_ISSUER:life-user-app}
       access-token-expire-minutes: 120
       refresh-token-expire-days: 7
   storage:
